@@ -1,0 +1,38 @@
+{
+  "CO": {
+    "raceBlind": [
+      { "repWins": 1, "freq": 320 },
+      { "repWins": 2, "freq": 510 },
+      { "repWins": 3, "freq": 780 },
+      { "repWins": 4, "freq": 600 },
+      { "repWins": 5, "freq": 240 },
+      { "repWins": 6, "freq": 70 }
+    ],
+    "vraConstrained": [
+      { "repWins": 1, "freq": 240 },
+      { "repWins": 2, "freq": 460 },
+      { "repWins": 3, "freq": 760 },
+      { "repWins": 4, "freq": 690 },
+      { "repWins": 5, "freq": 300 },
+      { "repWins": 6, "freq": 90 }
+    ]
+  },
+  "AZ": {
+    "raceBlind": [
+      { "repWins": 2, "freq": 180 },
+      { "repWins": 3, "freq": 420 },
+      { "repWins": 4, "freq": 680 },
+      { "repWins": 5, "freq": 710 },
+      { "repWins": 6, "freq": 500 },
+      { "repWins": 7, "freq": 210 }
+    ],
+    "vraConstrained": [
+      { "repWins": 2, "freq": 150 },
+      { "repWins": 3, "freq": 380 },
+      { "repWins": 4, "freq": 640 },
+      { "repWins": 5, "freq": 760 },
+      { "repWins": 6, "freq": 540 },
+      { "repWins": 7, "freq": 250 }
+    ]
+  }
+}
