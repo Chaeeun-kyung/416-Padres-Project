@@ -1,36 +1,41 @@
 import Select from '../../ui/components/Select'
 
 const SPLASH_STATE_OPTIONS = [
-  { value: '', label: 'Select a state (AZ or CO)' },
+  { value: '', label: 'Choose a state (AZ or CO)' },
   { value: 'AZ', label: 'Arizona (AZ)' },
   { value: 'CO', label: 'Colorado (CO)' },
 ]
 
-function SplashHero({ selectedStateCode, onStateSelect }) {
+function SplashHero({ selectedStateCode, onStateSelect, disabled = false }) {
   const effectiveValue = selectedStateCode ?? ''
 
   return (
     <div className="splash-hero">
+      <p className="splash-eyebrow">CSE 416 Team Padres</p>
       <h1 className="splash-title">CSE 416 Project</h1>
-      <p className="splash-subtitle">Select a state to enter the interactive district analysis workspace.</p>
-      <p className="splash-subtitle">Only Colorado (CO) and Arizona (AZ) are selectable now.</p>
+      <p className="splash-subtitle">Select a state to begin analysis.</p>
+      <p className="splash-helper">Only Arizona and Colorado are selectable now.</p>
+
       <div className="panel-card splash-state-picker">
         <label className="splash-state-picker__label" htmlFor="splash-state-select">
-          State Selector:
+          Select state
         </label>
         <Select
           id="splash-state-select"
           ariaLabel="Select a state"
+          aria-describedby="splash-select-help"
           value={effectiveValue}
           onChange={(stateCode) => {
             if (stateCode) onStateSelect?.(stateCode)
           }}
+          disabled={disabled}
           options={SPLASH_STATE_OPTIONS}
         />
-        <div className="small-text muted-text splash-state-picker__hint">
-          You can click the map or use this dropdown to continue.
+        <div id="splash-select-help" className="small-text muted-text splash-state-picker__hint">
+          You can also click directly on the map.
         </div>
       </div>
+
       <div className="splash-divider" />
     </div>
   )

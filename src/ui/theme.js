@@ -25,7 +25,7 @@ export const theme = {
   },
   typography: {
     font:
-      'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+      'Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
     headingSize: '19px',
     sectionSize: '13.5px',
     bodySize: '12.5px',
