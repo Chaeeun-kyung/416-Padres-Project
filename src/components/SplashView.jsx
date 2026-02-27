@@ -29,7 +29,11 @@ function SplashView() {
   return (
     <div className={`splash-page ${isExiting ? 'splash-page--exit' : ''}`}>
       <div className="splash-layout">
-        <SplashHero selectedStateCode={selectedStateCode} onStateSelect={handleStateSelect} />
+        <SplashHero
+          selectedStateCode={selectedStateCode}
+          onStateSelect={handleStateSelect}
+          disabled={isExiting}
+        />
         <USMapBackground selectedStateCode={selectedStateCode} onStateSelect={handleStateSelect} />
       </div>
     </div>

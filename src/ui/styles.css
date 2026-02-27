@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
 :root {
   --ui-bg: #f4f5f7;
   --ui-panel: #ffffff;
@@ -15,7 +17,7 @@
   --ui-space-md: 14px;
   --ui-space-lg: 18px;
   --ui-shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 8px 22px rgba(17, 24, 39, 0.05);
-  --ui-font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ui-font: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --ui-heading-size: 19px;
   --ui-section-size: 13.5px;
   --ui-body-size: 12.5px;
@@ -38,6 +40,13 @@ button,
 input,
 select {
   font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #f0cd44;
+  outline-offset: 2px;
 }
 
 .small-text {
@@ -395,8 +404,10 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(16px, 3.6vw, 44px);
-  background: linear-gradient(180deg, #f8f9fb 0%, #f1f3f7 100%);
+  padding: clamp(18px, 3.6vw, 44px);
+  background:
+    radial-gradient(circle at 18% 10%, rgba(212, 221, 233, 0.46), transparent 38%),
+    linear-gradient(160deg, #f7f8fb 0%, #eff3f8 100%);
   opacity: 1;
   transform: translateY(0);
   transition: opacity 180ms ease, transform 180ms ease;
@@ -409,26 +420,97 @@ select {
 }
 
 .splash-layout {
-  width: min(1120px, 100%);
-  display: flex;
-  flex-direction: column;
+  width: min(1320px, 100%);
+  display: grid;
+  grid-template-columns: minmax(310px, 430px) minmax(0, 1fr);
   align-items: center;
-  gap: clamp(14px, 2vw, 22px);
+  gap: clamp(16px, 2.2vw, 28px);
 }
 
 .splash-hero {
-  width: min(760px, 100%);
-  text-align: center;
+  width: 100%;
+  text-align: left;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.splash-eyebrow {
+  margin: 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  color: #627084;
+}
+
+.splash-helper {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: #6f7e95;
+  line-height: 1.4;
 }
 
 .splash-state-picker {
-  width: min(420px, 100%);
-  padding: 12px;
+  width: min(430px, 100%);
+  padding: 14px;
   text-align: left;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(3px);
+}
+
+.splash-state-picker__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-sm);
+  margin-bottom: var(--ui-space-sm);
+}
+
+.splash-state-picker__title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1b2738;
+}
+
+.splash-chip {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #ead78e;
+  background: #fff7d5;
+  color: #6a5410;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.splash-quick-picks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: var(--ui-space-sm);
+}
+
+.splash-quick-btn {
+  width: 100%;
+  border-radius: 12px;
+  border-color: #e6eaf1;
+  background: #f8fafd;
+  color: #2b3647;
+  font-weight: 600;
+}
+
+.splash-quick-btn:hover:not(:disabled) {
+  background: #f1f5fa;
+}
+
+.splash-quick-btn--active {
+  background: #ffe16f;
+  border-color: #e1c24d;
+  color: #4f3b00;
 }
 
 .splash-state-picker__label {
@@ -445,35 +527,37 @@ select {
 
 .splash-title {
   margin: 0;
-  font-size: clamp(32px, 4.2vw, 40px);
+  font-size: clamp(34px, 4.5vw, 42px);
   line-height: 1.16;
   letter-spacing: -0.02em;
-  font-weight: 600;
-  color: #162238;
+  font-weight: 650;
+  color: #132034;
 }
 
 .splash-subtitle {
   margin: 0;
-  font-size: clamp(13px, 1.5vw, 15px);
-  color: #5f6f87;
+  font-size: clamp(14px, 1.45vw, 16px);
+  color: #5f6c82;
 }
 
 .splash-divider {
-  width: 128px;
+  width: 140px;
   height: 1px;
-  background: linear-gradient(90deg, transparent 0%, #cfd7e3 40%, #cfd7e3 60%, transparent 100%);
+  margin-top: 4px;
+  background: linear-gradient(90deg, transparent 0%, #ccd5e3 40%, #ccd5e3 60%, transparent 100%);
 }
 
 .splash-map-shell {
-  width: min(1060px, 100%);
-  height: clamp(360px, 53vh, 560px);
+  width: 100%;
+  height: clamp(420px, 76vh, 760px);
   border-radius: 20px;
   overflow: hidden;
   position: relative;
-  box-shadow: 0 8px 28px rgba(17, 24, 39, 0.06);
+  border: 1px solid #e4e8ef;
+  box-shadow: 0 2px 6px rgba(17, 24, 39, 0.04), 0 18px 42px rgba(17, 24, 39, 0.08);
   background:
-    radial-gradient(circle at 10% 0%, rgba(206, 217, 232, 0.35), transparent 36%),
-    linear-gradient(180deg, #eef1f5 0%, #e8edf3 100%);
+    radial-gradient(circle at 10% 0%, rgba(204, 215, 230, 0.35), transparent 36%),
+    linear-gradient(180deg, #eff3f8 0%, #e8edf3 100%);
 }
 
 .splash-map.leaflet-container {
@@ -483,7 +567,7 @@ select {
 }
 
 .splash-map .leaflet-tile-pane {
-  filter: grayscale(100%) saturate(22%) brightness(1.04) contrast(0.92);
+  filter: grayscale(100%) saturate(20%) brightness(1.06) contrast(0.9);
 }
 
 .splash-map .leaflet-control-container {
@@ -500,10 +584,10 @@ select {
   display: inline-block;
   transform: translate(-50%, -50%);
   white-space: nowrap;
-  font-size: 9.5px;
+  font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.01em;
-  color: rgba(58, 69, 89, 0.72);
+  color: rgba(52, 63, 82, 0.74);
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
   user-select: none;
 }
@@ -526,6 +610,28 @@ select {
 
 .splash-state--disabled {
   cursor: default;
+}
+
+@media (max-width: 980px) {
+  .splash-layout {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .splash-hero {
+    max-width: 620px;
+    margin: 0 auto;
+    align-items: center;
+    text-align: center;
+  }
+
+  .splash-state-picker {
+    width: min(470px, 100%);
+  }
+
+  .splash-map-shell {
+    height: min(58vh, 540px);
+  }
 }
 
 @media (max-width: 1200px) {

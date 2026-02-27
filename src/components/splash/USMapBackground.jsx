@@ -89,9 +89,9 @@ function USMapBackground({ selectedStateCode, onStateSelect }) {
 
     if (selected) {
       return {
-        color: '#cfb258',
-        weight: 1.25,
-        fillColor: '#f4dc8f',
+        color: '#8a6a00',
+        weight: 2.5,
+        fillColor: '#ffe16f',
         fillOpacity: 0.95,
         className: 'splash-state splash-state--selected',
       }
@@ -99,19 +99,19 @@ function USMapBackground({ selectedStateCode, onStateSelect }) {
 
     if (selectable) {
       return {
-        color: '#d6bf79',
-        weight: 1,
-        fillColor: '#f2e4b2',
-        fillOpacity: 0.92,
+        color: '#ab8620',
+        weight: 2,
+        fillColor: '#fff3b2',
+        fillOpacity: 0.9,
         className: 'splash-state splash-state--selectable',
       }
     }
 
     return {
-      color: '#c5ced9',
-      weight: 0.8,
+      color: '#cbd5e1',
+      weight: 0.7,
       fillColor: '#d9dde3',
-      fillOpacity: 0.88,
+      fillOpacity: 0.42,
       className: 'splash-state splash-state--disabled',
     }
   }
@@ -127,21 +127,35 @@ function USMapBackground({ selectedStateCode, onStateSelect }) {
     const stateCode = FIPS_TO_STATE_CODE[fips]
     const isSelectable = SELECTABLE_STATES.has(stateCode)
 
-    const tooltipLabel = isSelectable ? stateCode ?? 'N/A' : `${stateCode ?? 'N/A'} (Not selectable)`
-    layer.bindTooltip(tooltipLabel, { direction: 'top', sticky: true, opacity: 0.95 })
+    layer.bindTooltip(isSelectable ? (stateCode ?? 'N/A') : 'Not available', {
+      direction: 'top',
+      sticky: true,
+      opacity: 0.94,
+    })
+
+    layer.on('add', () => {
+      const element = layer.getElement()
+      if (element) {
+        element.style.cursor = isSelectable ? 'pointer' : 'default'
+        element.style.transition = 'filter 180ms ease, transform 180ms ease'
+        element.style.transformBox = 'fill-box'
+        element.style.transformOrigin = 'center'
+      }
+    })
 
     layer.on({
       mouseover: () => {
         if (isSelectable && selectedStateCode !== stateCode) {
           layer.setStyle({
-            color: '#c9ac5b',
-            fillColor: '#f0da98',
+            color: '#8a6a00',
+            fillColor: '#ffe893',
             fillOpacity: 0.96,
-            weight: 1.35,
+            weight: 1.45,
           })
           const element = layer.getElement()
           if (element) {
-            element.style.filter = 'drop-shadow(0 1px 3px rgba(115, 88, 25, 0.18))'
+            element.style.filter = 'brightness(1.03) drop-shadow(0 1px 2px rgba(138, 106, 0, 0.24))'
+            element.style.transform = 'scale(1.01)'
           }
           layer.bringToFront()
         }
@@ -151,6 +165,7 @@ function USMapBackground({ selectedStateCode, onStateSelect }) {
         const element = layer.getElement()
         if (element) {
           element.style.filter = 'none'
+          element.style.transform = 'none'
         }
       },
     })
@@ -183,7 +198,7 @@ function USMapBackground({ selectedStateCode, onStateSelect }) {
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
-          opacity={0.5}
+          opacity={0.46}
         />
         <GeoJSON data={contiguousStatesGeojson} style={stateStyle} onEachFeature={onEachStateFeature} />
         {stateLabels.map((label) => (
