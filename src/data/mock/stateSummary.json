@@ -39,8 +39,7 @@
         "planCount": 5000,
         "populationEqualityThreshold": "<= 1.0% total deviation"
       }
-    ],
-    "note": "State-level summary for GUI review using CVAP (2020-2024 ACS 5-year) and 2024 precinct vote totals."
+    ]
   },
   "AZ": {
     "population": "7.4M",
@@ -82,7 +81,6 @@
         "planCount": 5000,
         "populationEqualityThreshold": "<= 1.0% total deviation"
       }
-    ],
-    "note": "State-level summary for GUI review using CVAP (2020-2024 ACS 5-year) and 2024 precinct vote totals."
+    ]
   }
 }

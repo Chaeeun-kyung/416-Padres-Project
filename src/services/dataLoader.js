@@ -104,34 +104,3 @@ export function deriveStateBounds(features) {
     [maxLat, maxLng],
   ]
 }
-
-export function buildMockDistrictLinesFromBounds(bounds, districtCount = 8) {
-  if (!bounds || districtCount < 2) return null
-
-  const [[minLat, minLng], [maxLat, maxLng]] = bounds
-  const latPadding = (maxLat - minLat) * 0.01
-  const span = maxLng - minLng
-  const lineCount = districtCount - 1
-  const features = []
-
-  for (let i = 1; i <= lineCount; i += 1) {
-    const ratio = i / districtCount
-    const x = minLng + span * ratio
-    features.push({
-      type: 'Feature',
-      properties: { id: `mock-line-${i}` },
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [x, minLat + latPadding],
-          [x, maxLat - latPadding],
-        ],
-      },
-    })
-  }
-
-  return {
-    type: 'FeatureCollection',
-    features,
-  }
-}

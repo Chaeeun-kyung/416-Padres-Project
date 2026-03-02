@@ -4,7 +4,6 @@ import { feature } from 'topojson-client'
 import statesTopo from 'us-atlas/states-10m.json'
 import { resolveBinsForMetric, getColorForValue } from '../services/bins'
 import {
-  buildMockDistrictLinesFromBounds,
   deriveStateBounds,
   loadDistrictGeoJSON,
   loadPrecinctGeoJSON,
@@ -26,23 +25,14 @@ function normalizePct(value) {
   return null
 }
 
-function geoidHashToPct(geoid, fallbackIndex, salt = '') {
-  const key = `${String(geoid ?? fallbackIndex)}-${salt}`
-  let hash = 0
-  for (let i = 0; i < key.length; i += 1) {
-    hash = (hash * 31 + key.charCodeAt(i)) % 1000
-  }
-  return (hash % 101) / 100
-}
-
-function resolveMetricValue(properties, metricKey, index) {
+function resolveMetricValue(properties, metricKey) {
   if (!metricKey) {
     return { value: null, isFallback: false }
   }
 
   if (metricKey === 'pct_dem_lead') {
     const value = Number(properties?.pct_dem_lead)
-    return Number.isFinite(value) ? { value, isFallback: false } : { value: 0, isFallback: true }
+    return Number.isFinite(value) ? { value, isFallback: false } : { value: null, isFallback: true }
   }
 
   const candidates = DEMOGRAPHIC_FIELD_CANDIDATES[metricKey] ?? [metricKey]
@@ -53,10 +43,7 @@ function resolveMetricValue(properties, metricKey, index) {
     }
   }
 
-  return {
-    value: geoidHashToPct(properties?.GEOID, index, metricKey),
-    isFallback: true,
-  }
+  return { value: null, isFallback: true }
 }
 
 function normalizeDistrictCode(rawCode) {
@@ -209,12 +196,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
         const explicitDistricts = await loadDistrictGeoJSON(selectedStateCode)
         if (!mounted) return
 
-        if (explicitDistricts?.features?.length) {
-          setDistrictGeojson(explicitDistricts)
-        } else {
-          const mockDistricts = buildMockDistrictLinesFromBounds(bounds, STATE_META[selectedStateCode]?.districtCount ?? 8)
-          setDistrictGeojson(mockDistricts)
-        }
+        setDistrictGeojson(explicitDistricts)
       } catch (error) {
         if (!mounted) return
         setPrecinctGeojson(null)
@@ -235,17 +217,15 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   const metricLookup = useMemo(() => {
     const values = []
     const byGeoId = new Map()
-    let fallbackCount = 0
 
     ;(precinctGeojson?.features ?? []).forEach((featureValue, index) => {
       const props = featureValue?.properties ?? {}
-      const result = resolveMetricValue(props, displayMetric, index)
+      const result = resolveMetricValue(props, displayMetric)
       values.push(result.value)
       byGeoId.set(String(props.GEOID ?? index), result.value)
-      if (result.isFallback) fallbackCount += 1
     })
 
-    return { values, byGeoId, fallbackCount }
+    return { values, byGeoId }
   }, [displayMetric, precinctGeojson?.features])
 
   const stateBoundaryGeojson = useMemo(() => {
@@ -346,31 +326,8 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     }
   }
 
-  const showFallbackNotice =
-    hasMetricSelection &&
-    displayMetric !== 'pct_dem_lead' &&
-    metricLookup.values.length > 0 &&
-    metricLookup.fallbackCount === metricLookup.values.length
-
   return (
     <section className="panel-card map-shell" style={{ flex: 1 }}>
-      {showFallbackNotice && (
-        <div
-          className="small-text muted-text"
-          style={{
-            position: 'absolute',
-            top: 10,
-            left: 10,
-            zIndex: 500,
-            background: 'rgba(255, 255, 255, 0.93)',
-            border: '1px solid var(--ui-border)',
-            borderRadius: 10,
-            padding: '6px 8px',
-          }}
-        >
-          Demographic % fields are not present in this GeoJSON yet. Display uses deterministic mock values by precinct GEOID.
-        </div>
-      )}
       <MapContainer
         key={`map-${selectedStateCode}-${mapResetToken}`}
         center={STATE_META[selectedStateCode]?.center ?? [39.1, -104.9]}

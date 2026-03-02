@@ -84,7 +84,7 @@ function LeftControls() {
         </div>
       </Card>
 
-      <Card title="Demographic Heatmap" subtitle="- Choose a racial/ethinic group">
+      <Card title="Demographic Heatmap" subtitle="- Choose a racial/ethnic group">
         <Select
           ariaLabel="Metric selector"
           value={effectiveMetric}
@@ -95,7 +95,7 @@ function LeftControls() {
 
       <Card title="Congressional Representation">
         <div className="small-text muted-text">
-          - Click districts for details. The corresponding table would be displayed on the right panel.
+          - Click a district to view details in the table on the right.
         </div>
       </Card>
     </aside>

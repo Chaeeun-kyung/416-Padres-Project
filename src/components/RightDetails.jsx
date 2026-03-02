@@ -385,14 +385,22 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
 
   useEffect(() => {
     if (!canShowRepresentationPage) {
-      setDetailsPage(0)
+      const frameId = requestAnimationFrame(() => {
+        setDetailsPage(0)
+      })
+      return () => cancelAnimationFrame(frameId)
     }
+    return undefined
   }, [canShowRepresentationPage])
 
   useEffect(() => {
     if (canShowRepresentationPage && selectedDistrictId) {
-      setDetailsPage(1)
+      const frameId = requestAnimationFrame(() => {
+        setDetailsPage(1)
+      })
+      return () => cancelAnimationFrame(frameId)
     }
+    return undefined
   }, [canShowRepresentationPage, selectedDistrictId])
 
   const totalPages = canShowRepresentationPage ? 2 : 1
