@@ -2,13 +2,14 @@ import { create } from 'zustand'
 
 const DEFAULT_VIEW = 'splash'
 const DEFAULT_TAB = 'Map'
-const DEFAULT_METRIC = 'pct_dem_lead'
+const DEFAULT_METRIC = ''
 
 const DEFAULT_STATE_SETTINGS = {
   activeTab: DEFAULT_TAB,
   activeMetric: DEFAULT_METRIC,
   showDistrictBoundaries: true,
-  showChoropleth: true,
+  showPrecinctBoundaries: false,
+  showDemLeadOverlay: false,
   selectedPrecinctId: null,
   selectedDistrictId: null,
   bottomDrawerOpen: true,
@@ -20,7 +21,8 @@ const useAppStore = create((set) => ({
   activeTab: DEFAULT_TAB,
   activeMetric: DEFAULT_METRIC,
   showDistrictBoundaries: true,
-  showChoropleth: true,
+  showPrecinctBoundaries: false,
+  showDemLeadOverlay: false,
   selectedPrecinctId: null,
   selectedDistrictId: null,
   bottomDrawerOpen: true,
@@ -33,11 +35,23 @@ const useAppStore = create((set) => ({
       mapResetToken: 0,
     }),
   setActiveTab: (tab) => set({ activeTab: tab }),
-  setActiveMetric: (metric) => set({ activeMetric: metric }),
+  setActiveMetric: (metric) =>
+    set((state) => ({
+      activeMetric: metric,
+      showDemLeadOverlay: metric ? false : state.showDemLeadOverlay,
+    })),
   toggleDistrictBoundaries: () =>
     set((state) => ({ showDistrictBoundaries: !state.showDistrictBoundaries })),
-  toggleChoropleth: () =>
-    set((state) => ({ showChoropleth: !state.showChoropleth })),
+  togglePrecinctBoundaries: () =>
+    set((state) => ({ showPrecinctBoundaries: !state.showPrecinctBoundaries })),
+  toggleDemLeadOverlay: () =>
+    set((state) => {
+      const nextShowDemLeadOverlay = !state.showDemLeadOverlay
+      return {
+        showDemLeadOverlay: nextShowDemLeadOverlay,
+        activeMetric: nextShowDemLeadOverlay ? '' : state.activeMetric,
+      }
+    }),
   setSelectedPrecinctId: (precinctId) => set({ selectedPrecinctId: precinctId }),
   setSelectedDistrictId: (districtId) => set({ selectedDistrictId: districtId }),
   setBottomDrawerOpen: (open) => set({ bottomDrawerOpen: Boolean(open) }),

@@ -1,18 +1,4 @@
-import { useMemo, useState } from 'react'
-import Button from '../../ui/components/Button'
-
-const PAGE_SIZE = 10
-
 function RepresentationTable({ rows, selectedDistrictId, onSelectDistrict }) {
-  const [page, setPage] = useState(0)
-
-  const pageCount = Math.max(1, Math.ceil((rows?.length ?? 0) / PAGE_SIZE))
-  const effectivePage = Math.min(page, pageCount - 1)
-  const pagedRows = useMemo(() => {
-    const start = effectivePage * PAGE_SIZE
-    return (rows ?? []).slice(start, start + PAGE_SIZE)
-  }, [effectivePage, rows])
-
   return (
     <div>
       <div style={{ width: '100%', overflowX: 'auto' }}>
@@ -34,7 +20,7 @@ function RepresentationTable({ rows, selectedDistrictId, onSelectDistrict }) {
             </tr>
           </thead>
           <tbody>
-            {pagedRows.map((row) => {
+            {(rows ?? []).map((row) => {
               const selected = selectedDistrictId === row.districtId
               return (
                 <tr
@@ -78,21 +64,6 @@ function RepresentationTable({ rows, selectedDistrictId, onSelectDistrict }) {
             })}
           </tbody>
         </table>
-      </div>
-      <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Button variant="secondary" disabled={page === 0} onClick={() => setPage((previous) => Math.max(0, previous - 1))}>
-          Prev
-        </Button>
-        <span className="small-text">
-          Page {effectivePage + 1} / {pageCount}
-        </span>
-        <Button
-          variant="secondary"
-          disabled={effectivePage >= pageCount - 1}
-          onClick={() => setPage((previous) => Math.min(pageCount - 1, previous + 1))}
-        >
-          Next
-        </Button>
       </div>
     </div>
   )

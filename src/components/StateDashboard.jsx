@@ -1,13 +1,15 @@
-import { useMemo, useState } from 'react'
+import { useRef, useState } from 'react'
 import BottomDrawer from './BottomDrawer'
 import LeftControls from './LeftControls'
 import MapPanel from './MapPanel'
 import RightDetails from './RightDetails'
-import { STATE_META } from '../data/stateMeta'
 import useAppStore from '../store/useAppStore'
-import Badge from '../ui/components/Badge'
 import Button from '../ui/components/Button'
 import Card from '../ui/components/Card'
+
+const LEFT_PANEL_WIDTH = 280
+const RIGHT_PANEL_MIN_WIDTH = 370
+const MAP_PANEL_MIN_WIDTH = 320
 
 function StateDashboard() {
   const selectedStateCode = useAppStore((state) => state.selectedStateCode)
@@ -16,19 +18,54 @@ function StateDashboard() {
   const [precinctGeojson, setPrecinctGeojson] = useState(null)
   const [loadingMapData, setLoadingMapData] = useState(false)
   const [mapError, setMapError] = useState('')
+  const [rightPanelWidth, setRightPanelWidth] = useState(RIGHT_PANEL_MIN_WIDTH)
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false)
+  const gridRef = useRef(null)
 
-  const stateName = useMemo(() => STATE_META[selectedStateCode]?.name ?? selectedStateCode, [selectedStateCode])
+  function handleSidebarResizeStart(event) {
+    if (!gridRef.current) return
+
+    event.preventDefault()
+    const startX = event.clientX
+    const startWidth = rightPanelWidth
+    const gridRect = gridRef.current.getBoundingClientRect()
+    const gridStyle = window.getComputedStyle(gridRef.current)
+    const gridGap = Number.parseFloat(gridStyle.columnGap || gridStyle.gap || '0') || 0
+    const maxWidth = Math.max(
+      RIGHT_PANEL_MIN_WIDTH,
+      gridRect.width - LEFT_PANEL_WIDTH - MAP_PANEL_MIN_WIDTH - (gridGap * 3) - 10,
+    )
+
+    setIsResizingSidebar(true)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    function handlePointerMove(moveEvent) {
+      const delta = startX - moveEvent.clientX
+      const nextWidth = startWidth + delta
+      setRightPanelWidth(Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(maxWidth, nextWidth)))
+    }
+
+    function handlePointerUp() {
+      window.removeEventListener('pointermove', handlePointerMove)
+      window.removeEventListener('pointerup', handlePointerUp)
+      setIsResizingSidebar(false)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', handlePointerUp)
+  }
 
   return (
     <div className="dashboard-shell">
       <Card className="dashboard-topbar" compact>
         <div className="dashboard-topbar__row">
           <div>
-            <h1 className="dashboard-title">CSE 416 Redistricting Dashboard</h1>
-            <div className="small-text muted-text">{stateName}</div>
+            <h1 className="dashboard-title">CSE 416 Project Dashboard</h1>
           </div>
           <div className="dashboard-topbar__meta">
-            <Badge>Based on 2024 Presidential (Precinct-Level)</Badge>
             <Button variant="secondary" onClick={resetDashboardPage}>
               Reset Page
             </Button>
@@ -43,15 +80,28 @@ function StateDashboard() {
         </div>
       </Card>
 
-      <div className="dashboard-grid">
-        <LeftControls />
+      <div
+        className="dashboard-grid"
+        ref={gridRef}
+        style={{ '--right-sidebar-width': `${rightPanelWidth}px` }}
+      >
+        <LeftControls precinctGeojson={precinctGeojson} />
         <MapPanel
           selectedStateCode={selectedStateCode}
           onPrecinctGeojsonLoaded={setPrecinctGeojson}
           setLoadingMapData={setLoadingMapData}
           setMapError={setMapError}
         />
-        <RightDetails selectedStateCode={selectedStateCode} precinctGeojson={precinctGeojson} loading={loadingMapData} />
+        <div
+          className={`dashboard-resize-handle${isResizingSidebar ? ' dashboard-resize-handle--active' : ''}`}
+          role="separator"
+          aria-label="Resize right sidebar"
+          aria-orientation="vertical"
+          onPointerDown={handleSidebarResizeStart}
+        />
+        <div className="dashboard-right-pane">
+          <RightDetails selectedStateCode={selectedStateCode} precinctGeojson={precinctGeojson} loading={loadingMapData} />
+        </div>
       </div>
 
       <BottomDrawer

@@ -53,25 +53,6 @@ export async function loadDistrictGeoJSON(stateCode) {
   }
 }
 
-export function getPrecinctRows(features) {
-  return (features ?? []).map((feature, index) => {
-    const props = feature.properties ?? {}
-    return {
-      rowKey: `${props.GEOID ?? 'unknown'}-${index}`,
-      geoid: props.GEOID ?? `unknown-${index}`,
-      votesDem: Number(props.votes_dem ?? 0),
-      votesRep: Number(props.votes_rep ?? 0),
-      votesTotal: Number(props.votes_total ?? 0),
-      pctDemLead: Number(props.pct_dem_lead ?? 0),
-    }
-  })
-}
-
-export function getFeatureByGeoId(features, geoid) {
-  if (!geoid) return null
-  return (features ?? []).find((feature) => String(feature?.properties?.GEOID) === String(geoid)) ?? null
-}
-
 export function deriveStateBounds(features) {
   let minLat = Infinity
   let minLng = Infinity
@@ -103,35 +84,4 @@ export function deriveStateBounds(features) {
     [minLat, minLng],
     [maxLat, maxLng],
   ]
-}
-
-export function buildMockDistrictLinesFromBounds(bounds, districtCount = 8) {
-  if (!bounds || districtCount < 2) return null
-
-  const [[minLat, minLng], [maxLat, maxLng]] = bounds
-  const latPadding = (maxLat - minLat) * 0.01
-  const span = maxLng - minLng
-  const lineCount = districtCount - 1
-  const features = []
-
-  for (let i = 1; i <= lineCount; i += 1) {
-    const ratio = i / districtCount
-    const x = minLng + span * ratio
-    features.push({
-      type: 'Feature',
-      properties: { id: `mock-line-${i}` },
-      geometry: {
-        type: 'LineString',
-        coordinates: [
-          [x, minLat + latPadding],
-          [x, maxLat - latPadding],
-        ],
-      },
-    })
-  }
-
-  return {
-    type: 'FeatureCollection',
-    features,
-  }
 }
