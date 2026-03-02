@@ -20,9 +20,9 @@ export async function loadPrecinctGeoJSON(stateCode) {
     return precinctCache.get(stateCode)
   }
 
-  const response = await fetch(`/geojson/${stateCode}-precincts-with-results.geojson`, { cache: 'no-store' })
+  const response = await fetch(`/geojson/${stateCode}-precincts-with-results-cvap.geojson`, { cache: 'no-store' })
   if (!response.ok) {
-    throw new Error(`Failed to load precinct GeoJSON for ${stateCode}`)
+    throw new Error(`Failed to load CVAP precinct GeoJSON for ${stateCode}`)
   }
 
   const geojson = await response.json()
