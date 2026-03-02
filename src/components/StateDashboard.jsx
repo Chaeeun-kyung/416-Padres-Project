@@ -4,7 +4,6 @@ import LeftControls from './LeftControls'
 import MapPanel from './MapPanel'
 import RightDetails from './RightDetails'
 import useAppStore from '../store/useAppStore'
-import Badge from '../ui/components/Badge'
 import Button from '../ui/components/Button'
 import Card from '../ui/components/Card'
 
@@ -86,7 +85,7 @@ function StateDashboard() {
         ref={gridRef}
         style={{ '--right-sidebar-width': `${rightPanelWidth}px` }}
       >
-        <LeftControls />
+        <LeftControls precinctGeojson={precinctGeojson} />
         <MapPanel
           selectedStateCode={selectedStateCode}
           onPrecinctGeojsonLoaded={setPrecinctGeojson}

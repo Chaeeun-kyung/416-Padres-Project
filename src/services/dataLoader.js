@@ -53,25 +53,6 @@ export async function loadDistrictGeoJSON(stateCode) {
   }
 }
 
-export function getPrecinctRows(features) {
-  return (features ?? []).map((feature, index) => {
-    const props = feature.properties ?? {}
-    return {
-      rowKey: `${props.GEOID ?? 'unknown'}-${index}`,
-      geoid: props.GEOID ?? `unknown-${index}`,
-      votesDem: Number(props.votes_dem ?? 0),
-      votesRep: Number(props.votes_rep ?? 0),
-      votesTotal: Number(props.votes_total ?? 0),
-      pctDemLead: Number(props.pct_dem_lead ?? 0),
-    }
-  })
-}
-
-export function getFeatureByGeoId(features, geoid) {
-  if (!geoid) return null
-  return (features ?? []).find((feature) => String(feature?.properties?.GEOID) === String(geoid)) ?? null
-}
-
 export function deriveStateBounds(features) {
   let minLat = Infinity
   let minLng = Infinity

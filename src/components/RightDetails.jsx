@@ -12,20 +12,66 @@ import RepresentationTable from './tables/RepresentationTable'
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
 const RACIAL_BAR_COLORS = ['#0f766e', '#14b8a6', '#06b6d4']
-
-function StatLine({ label, value }) {
-  return (
-    <div className="details-stat">
-      <span className="details-stat__label">{label}</span>
-      <span className="details-stat__value">{value}</span>
-    </div>
-  )
+const CVAP_TOTAL_FIELD = 'CVAP_TOT24'
+const CVAP_GROUP_FIELDS = {
+  white_pct: 'CVAP_WHT24',
+  black_pct: 'CVAP_BLA24',
+  latino_pct: 'CVAP_HSP24',
+  asian_pct: 'CVAP_ASI24',
 }
 
-function PopulationSummaryTable({ summary }) {
+function formatWholeNumber(value) {
+  return Number.isFinite(value) ? Math.round(value).toLocaleString() : 'N/A'
+}
+
+function buildStatewideCvapSummary(features) {
+  if (!Array.isArray(features) || !features.length) return null
+
+  let totalCvap = 0
+  let hasTotalCvap = false
+  const groupTotals = Object.fromEntries(Object.keys(CVAP_GROUP_FIELDS).map((groupKey) => [groupKey, 0]))
+
+  ;(features ?? []).forEach((feature) => {
+    const props = feature?.properties ?? {}
+    const total = Number(props[CVAP_TOTAL_FIELD])
+    if (Number.isFinite(total)) {
+      totalCvap += total
+      hasTotalCvap = true
+    }
+
+    Object.entries(CVAP_GROUP_FIELDS).forEach(([groupKey, fieldName]) => {
+      const value = Number(props[fieldName])
+      if (Number.isFinite(value)) {
+        groupTotals[groupKey] += value
+      }
+    })
+  })
+
+  if (!hasTotalCvap || totalCvap <= 0) {
+    return null
+  }
+
+  const racialEthnicPopulationPct = {}
+  const racialEthnicPopulationMillions = {}
+  Object.keys(CVAP_GROUP_FIELDS).forEach((groupKey) => {
+    const total = groupTotals[groupKey]
+    if (!Number.isFinite(total)) return
+    racialEthnicPopulationPct[groupKey] = (total / totalCvap) * 100
+    racialEthnicPopulationMillions[groupKey] = total / 1000000
+  })
+
+  return {
+    votingAgePopulation: totalCvap,
+    racialEthnicPopulationPct,
+    racialEthnicPopulationMillions,
+  }
+}
+
+function PopulationSummaryTable({ cvapTotal, districtCount, loading }) {
+  const cvapValue = loading ? 'Loading...' : formatWholeNumber(cvapTotal)
   const rows = [
-    { label: 'Citizen Voting-Age Population', value: summary?.votingAgePopulation ?? 'N/A' },
-    { label: 'Districts', value: summary?.districts?.toLocaleString?.() ?? summary?.districts ?? 'N/A' },
+    { label: 'Citizen Voting-Age Population', value: cvapValue },
+    { label: 'Districts', value: districtCount?.toLocaleString?.() ?? districtCount ?? 'N/A' },
   ]
 
   return (
@@ -137,7 +183,7 @@ function CongressionalPartySummarySection({ summary }) {
   )
 }
 
-function RacialGroupsSection({ summary, feasibleGroups }) {
+function RacialGroupsSection({ summary, feasibleGroups, loading }) {
   const [chartView, setChartView] = useState(false)
 
   const rows = useMemo(() => {
@@ -176,7 +222,13 @@ function RacialGroupsSection({ summary, feasibleGroups }) {
         </div>
       </div>
 
-      {!rows.length && (
+      {loading && !rows.length && (
+        <div className="small-text muted-text" style={{ marginBottom: 8 }}>
+          Loading statewide racial group summary from precinct CVAP GeoJSON...
+        </div>
+      )}
+
+      {!loading && !rows.length && (
         <div className="small-text muted-text" style={{ marginBottom: 8 }}>
           No feasible racial/ethnic group data.
         </div>
@@ -378,7 +430,11 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
   const setSelectedDistrictId = useAppStore((state) => state.setSelectedDistrictId)
   const summary = stateSummary[selectedStateCode]
   const repRows = representationRows[selectedStateCode] ?? []
-  const feasibleGroups = getFeasibleGroupKeys(summary)
+  const statewideCvapSummary = useMemo(
+    () => buildStatewideCvapSummary(precinctGeojson?.features ?? []),
+    [precinctGeojson?.features],
+  )
+  const feasibleGroups = getFeasibleGroupKeys(statewideCvapSummary)
   const canShowRepresentationPage =
     (activeTab === 'Map' || activeTab === 'Demographics') && Boolean(selectedDistrictId)
   const [detailsPage, setDetailsPage] = useState(0)
@@ -438,7 +494,11 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
         ) : (
           <>
             <Card title="Population Overview">
-              <PopulationSummaryTable summary={summary} />
+              <PopulationSummaryTable
+                cvapTotal={statewideCvapSummary?.votingAgePopulation}
+                districtCount={summary?.districts}
+                loading={loading}
+              />
             </Card>
 
             <Card title="Voter Distribution">
@@ -446,7 +506,11 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
             </Card>
 
             <Card title="Racial Groups">
-              <RacialGroupsSection summary={summary} feasibleGroups={feasibleGroups} />
+              <RacialGroupsSection
+                summary={statewideCvapSummary}
+                feasibleGroups={feasibleGroups}
+                loading={loading}
+              />
             </Card>
 
             <Card title="Redistricting Process">

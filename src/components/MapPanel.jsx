@@ -67,8 +67,8 @@ function getDistrictIdForFeature(featureProperties, stateCode) {
   return geoidCode ? `${stateCode}-${geoidCode}` : null
 }
 
-const DISTRICT_SELECTED_STROKE = '#fde047'
-const DISTRICT_SELECTED_FILL = '#fef08a'
+const DISTRICT_SELECTED_STROKE = '#4E9A53'
+const DISTRICT_SELECTED_FILL = '#E6F6E8'
 const DISTRICT_DEFAULT_STROKE = '#0f172a'
 
 function BoundsController({ bounds }) {
@@ -308,7 +308,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
       weight: isSelected ? 5.4 : 2.2,
       opacity: isSelected ? 1 : 0.9,
       fillColor: isSelected ? DISTRICT_SELECTED_FILL : 'transparent',
-      fillOpacity: isSelected ? 0.2 : 0,
+      fillOpacity: isSelected ? 0.4 : 0,
     }
   }
 
