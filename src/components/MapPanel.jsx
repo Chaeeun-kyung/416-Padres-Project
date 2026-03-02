@@ -13,11 +13,10 @@ import { FIPS_TO_STATE_CODE, STATE_META } from '../data/stateMeta'
 import useAppStore from '../store/useAppStore'
 
 const DEMOGRAPHIC_FIELD_CANDIDATES = {
-  white_pct: ['white_pct', 'pct_white', 'white_cvap_pct', 'white_population_pct'],
-  black_pct: ['black_pct', 'pct_black', 'black_cvap_pct', 'black_population_pct'],
-  latino_pct: ['latino_pct', 'hispanic_pct', 'pct_hispanic', 'latino_cvap_pct', 'hispanic_cvap_pct'],
-  native_american_pct: ['native_american_pct', 'native_pct', 'pct_native', 'native_cvap_pct', 'native_population_pct'],
-  asian_pct: ['asian_pct', 'pct_asian', 'asian_cvap_pct'],
+  white_pct: ['PCT_CVAP_WHT'],
+  black_pct: ['PCT_CVAP_BLA'],
+  latino_pct: ['PCT_CVAP_HSP'],
+  asian_pct: ['PCT_CVAP_ASI'],
 }
 
 function normalizePct(value) {

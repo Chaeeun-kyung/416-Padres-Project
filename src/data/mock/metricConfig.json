@@ -6,27 +6,22 @@
   },
   {
     "key": "white_pct",
-    "label": "White Population %",
-    "description": "Placeholder metric for demographic overlay."
+    "label": "White CVAP %",
+    "description": "Precinct-level White CVAP share."
   },
   {
     "key": "black_pct",
-    "label": "Black Population %",
-    "description": "Placeholder metric for demographic overlay."
+    "label": "Black CVAP %",
+    "description": "Precinct-level Black CVAP share."
   },
   {
     "key": "latino_pct",
-    "label": "Latino Population %",
-    "description": "Placeholder metric for demographic overlay."
-  },
-  {
-    "key": "native_american_pct",
-    "label": "Native American Population %",
-    "description": "Placeholder metric for demographic overlay."
+    "label": "Latino CVAP %",
+    "description": "Precinct-level Hispanic/Latino CVAP share."
   },
   {
     "key": "asian_pct",
-    "label": "Asian Population %",
-    "description": "Placeholder metric for demographic overlay."
+    "label": "Asian CVAP %",
+    "description": "Precinct-level Asian CVAP share."
   }
 ]
