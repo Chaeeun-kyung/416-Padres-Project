@@ -36,6 +36,10 @@ function geoidHashToPct(geoid, fallbackIndex, salt = '') {
 }
 
 function resolveMetricValue(properties, metricKey, index) {
+  if (!metricKey) {
+    return { value: null, isFallback: false }
+  }
+
   if (metricKey === 'pct_dem_lead') {
     const value = Number(properties?.pct_dem_lead)
     return Number.isFinite(value) ? { value, isFallback: false } : { value: 0, isFallback: true }
@@ -75,6 +79,10 @@ function getDistrictIdForFeature(featureProperties, stateCode) {
   const geoidCode = normalizeDistrictCode(featureProperties.GEOID)
   return geoidCode ? `${stateCode}-${geoidCode}` : null
 }
+
+const DISTRICT_SELECTED_STROKE = '#fde047'
+const DISTRICT_SELECTED_FILL = '#fef08a'
+const DISTRICT_DEFAULT_STROKE = '#0f172a'
 
 function BoundsController({ bounds }) {
   const map = useMap()
@@ -163,7 +171,8 @@ function ChoroplethLegend({ binResult }) {
 }
 
 function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapData, setMapError }) {
-  const showChoropleth = useAppStore((state) => state.showChoropleth)
+  const showPrecinctBoundaries = useAppStore((state) => state.showPrecinctBoundaries)
+  const showDemLeadOverlay = useAppStore((state) => state.showDemLeadOverlay)
   const showDistrictBoundaries = useAppStore((state) => state.showDistrictBoundaries)
   const activeMetric = useAppStore((state) => state.activeMetric)
   const selectedPrecinctId = useAppStore((state) => state.selectedPrecinctId)
@@ -175,6 +184,8 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   const [precinctGeojson, setPrecinctGeojson] = useState(null)
   const [districtGeojson, setDistrictGeojson] = useState(null)
   const [stateBounds, setStateBounds] = useState(null)
+  const displayMetric = showDemLeadOverlay ? 'pct_dem_lead' : activeMetric
+  const hasMetricSelection = Boolean(displayMetric)
 
   useEffect(() => {
     let mounted = true
@@ -228,14 +239,14 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
 
     ;(precinctGeojson?.features ?? []).forEach((featureValue, index) => {
       const props = featureValue?.properties ?? {}
-      const result = resolveMetricValue(props, activeMetric, index)
+      const result = resolveMetricValue(props, displayMetric, index)
       values.push(result.value)
       byGeoId.set(String(props.GEOID ?? index), result.value)
       if (result.isFallback) fallbackCount += 1
     })
 
     return { values, byGeoId, fallbackCount }
-  }, [activeMetric, precinctGeojson?.features])
+  }, [displayMetric, precinctGeojson?.features])
 
   const stateBoundaryGeojson = useMemo(() => {
     const states = feature(statesTopo, statesTopo.objects.states)
@@ -253,23 +264,28 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   }, [selectedStateCode])
 
   const binResult = useMemo(() => {
+    if (!hasMetricSelection) {
+      return null
+    }
+
     return resolveBinsForMetric(
       selectedStateCode,
-      activeMetric,
+      displayMetric,
       precinctGeojson?.features ?? [],
       metricLookup.values,
     )
-  }, [activeMetric, metricLookup.values, precinctGeojson?.features, selectedStateCode])
+  }, [displayMetric, hasMetricSelection, metricLookup.values, precinctGeojson?.features, selectedStateCode])
 
-  function makePrecinctStyle(feature) {
+  function makePrecinctFillStyle(feature) {
     const geoid = String(feature?.properties?.GEOID ?? '')
-    const value = metricLookup.byGeoId.get(geoid)
+    const metricValue = metricLookup.byGeoId.get(geoid)
     const isSelected = String(feature?.properties?.GEOID) === String(selectedPrecinctId)
     return {
-      color: isSelected ? '#a16207' : '#475569',
-      weight: isSelected ? 2 : 0.4,
-      fillColor: getColorForValue(value, binResult.bins, binResult.colors),
-      fillOpacity: showChoropleth ? 0.72 : 0,
+      color: isSelected && !showPrecinctBoundaries ? '#a16207' : 'transparent',
+      weight: isSelected && !showPrecinctBoundaries ? 2 : 0,
+      opacity: 1,
+      fillColor: hasMetricSelection ? getColorForValue(metricValue, binResult?.bins ?? [], binResult?.colors ?? []) : '#cbd5e1',
+      fillOpacity: hasMetricSelection ? 0.72 : 0,
     }
   }
 
@@ -286,14 +302,16 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   function onEachPrecinct(featureValue, layer) {
     const props = featureValue.properties ?? {}
     const metricValue = metricLookup.byGeoId.get(String(props.GEOID ?? ''))
-    const metricText =
-      activeMetric === 'pct_dem_lead'
+    const metricText = !hasMetricSelection
+      ? 'N/A'
+      : displayMetric === 'pct_dem_lead'
         ? `${(Number(metricValue ?? 0) * 100).toFixed(1)}%`
         : `${Math.round(Number(metricValue ?? 0) * 100)}%`
+    const metricLabel = hasMetricSelection ? binResult?.metricLabel ?? displayMetric : 'Selected metric'
     layer.bindTooltip(
       `GEOID: ${props.GEOID ?? 'N/A'} | Dem: ${props.votes_dem ?? 0} | Rep: ${props.votes_rep ?? 0} | Total: ${
         props.votes_total ?? 0
-      } | ${binResult.metricLabel}: ${metricText}`,
+      } | ${metricLabel}: ${metricText}`,
     )
     layer.on({
       click: () => {
@@ -306,10 +324,11 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     const districtId = getDistrictIdForFeature(featureValue?.properties, selectedStateCode)
     const isSelected = districtId && selectedDistrictId && String(districtId) === String(selectedDistrictId)
     return {
-      color: isSelected ? '#a16207' : '#0f172a',
-      weight: isSelected ? 3.4 : 2.2,
+      color: isSelected ? DISTRICT_SELECTED_STROKE : DISTRICT_DEFAULT_STROKE,
+      weight: isSelected ? 5.4 : 2.2,
       opacity: isSelected ? 1 : 0.9,
-      fillOpacity: 0,
+      fillColor: isSelected ? DISTRICT_SELECTED_FILL : 'transparent',
+      fillOpacity: isSelected ? 0.2 : 0,
     }
   }
 
@@ -327,7 +346,11 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     }
   }
 
-  const showFallbackNotice = activeMetric !== 'pct_dem_lead' && metricLookup.values.length > 0 && metricLookup.fallbackCount === metricLookup.values.length
+  const showFallbackNotice =
+    hasMetricSelection &&
+    displayMetric !== 'pct_dem_lead' &&
+    metricLookup.values.length > 0 &&
+    metricLookup.fallbackCount === metricLookup.values.length
 
   return (
     <section className="panel-card map-shell" style={{ flex: 1 }}>
@@ -384,25 +407,27 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
           />
         )}
 
-        {precinctGeojson &&
-          (showChoropleth ? (
-            <GeoJSON
-              key={`precincts-fill-${selectedStateCode}`}
-              data={precinctGeojson}
-              style={makePrecinctStyle}
-              onEachFeature={onEachPrecinct}
-            />
-          ) : (
-            <GeoJSON
-              key={`precincts-outline-${selectedStateCode}`}
-              data={precinctGeojson}
-              style={makePrecinctOutlineStyle}
-              onEachFeature={onEachPrecinct}
-            />
-          ))}
+        {precinctGeojson && hasMetricSelection && (
+          <GeoJSON
+            key={`precincts-fill-${selectedStateCode}-${displayMetric}`}
+            data={precinctGeojson}
+            style={makePrecinctFillStyle}
+            interactive={!showPrecinctBoundaries}
+            onEachFeature={showPrecinctBoundaries ? undefined : onEachPrecinct}
+          />
+        )}
+
+        {precinctGeojson && showPrecinctBoundaries && (
+          <GeoJSON
+            key={`precincts-outline-${selectedStateCode}`}
+            data={precinctGeojson}
+            style={makePrecinctOutlineStyle}
+            onEachFeature={onEachPrecinct}
+          />
+        )}
       </MapContainer>
 
-      {showChoropleth && <ChoroplethLegend binResult={binResult} />}
+      {hasMetricSelection && <ChoroplethLegend binResult={binResult} />}
     </section>
   )
 }
