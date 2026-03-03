@@ -58,6 +58,7 @@ export function resolveBinsForMetric(stateCode, metricKey, features, explicitVal
       source: 'mock-config',
     }
   }
+  
 
   const values = (explicitValues?.length
     ? explicitValues
