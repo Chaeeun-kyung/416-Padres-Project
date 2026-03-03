@@ -8,6 +8,8 @@ import Button from '../ui/components/Button'
 import Card from '../ui/components/Card'
 import ToggleSwitch from '../ui/components/ToggleSwitch'
 import RepresentationTable from './tables/RepresentationTable'
+import EnsembleHistogram from './charts/EnsembleHistogram'
+import EnsembleBoxplot from './charts/EnsembleBoxplot'
 
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
@@ -524,6 +526,21 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
             <Card title="Ensemble Summary">
               <EnsembleSummaryTable />
             </Card>
+            {activeTab === 'Ensemble' && (
+              <Card title="Ensemble Histogram (GUI-16)">
+                <div style={{ width: '100%', height: 300 }}>
+                  <EnsembleHistogram stateCode={selectedStateCode} />
+                </div>
+              </Card>
+            )}
+
+            {activeTab === 'Ensemble' && (
+              <Card title="Ensemble Comparison (GUI-17)">
+                <div style={{ width: '100%', height: 320 }}>
+                  <EnsembleBoxplot stateCode={selectedStateCode} />
+                </div>
+              </Card>
+            )}
           </>
         )
       )}
