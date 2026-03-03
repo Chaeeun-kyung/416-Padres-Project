@@ -82,7 +82,7 @@ function LeftControls({ precinctGeojson }) {
       DEMOGRAPHIC_METRICS.map((metric) => metric.key),
       cvapSummaryForFeasible,
       DEMOGRAPHIC_METRIC_LABELS,
-      { includeOnlyFeasible: true },
+      { includeOnlyFeasible: Boolean(cvapSummaryForFeasible) },
     ),
     [cvapSummaryForFeasible],
   )
@@ -90,15 +90,16 @@ function LeftControls({ precinctGeojson }) {
     () => [{ value: '', label: 'None' }, ...feasibleDemographicOptions],
     [feasibleDemographicOptions],
   )
+  const firstAvailableMetric = metricOptions.find((option) => option.value)?.value ?? ''
   const effectiveMetric = metricOptions.some((option) => option.value === activeMetric)
     ? activeMetric
     : ''
 
   useEffect(() => {
     if (activeMetric && !metricOptions.some((option) => option.value === activeMetric)) {
-      setActiveMetric('')
+      setActiveMetric(firstAvailableMetric)
     }
-  }, [activeMetric, metricOptions, setActiveMetric])
+  }, [activeMetric, firstAvailableMetric, metricOptions, setActiveMetric])
 
   return (
     <aside className="dashboard-sidebar">

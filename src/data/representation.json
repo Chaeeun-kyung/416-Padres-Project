@@ -1,0 +1,24 @@
+{
+  "CO": [
+    { "districtId": "CO-01", "incumbent": "Diana DeGette", "party": "D", "repRaceEthnicity": "White", "voteMarginPct": 54.98 },
+    { "districtId": "CO-02", "incumbent": "Joe Neguse", "party": "D", "repRaceEthnicity": "Black", "voteMarginPct": 39.42 },
+    { "districtId": "CO-03", "incumbent": "Jeff Hurd", "party": "R", "repRaceEthnicity": "White", "voteMarginPct": 4.98 },
+    { "districtId": "CO-04", "incumbent": "Lauren Boebert", "party": "R", "repRaceEthnicity": "White", "voteMarginPct": 11.6 },
+    { "districtId": "CO-05", "incumbent": "Jeff Crank", "party": "R", "repRaceEthnicity": "White", "voteMarginPct": 13.79 },
+    { "districtId": "CO-06", "incumbent": "Jason Crow", "party": "D", "repRaceEthnicity": "White", "voteMarginPct": 20.51 },
+    { "districtId": "CO-07", "incumbent": "Brittany Pettersen", "party": "D", "repRaceEthnicity": "White", "voteMarginPct": 14.19 },
+    { "districtId": "CO-08", "incumbent": "Gabe Evans", "party": "R", "repRaceEthnicity": "Latino", "voteMarginPct": 0.74 }
+  ],
+  "AZ": [
+    { "districtId": "AZ-01", "incumbent": "David Schweikert", "party": "R", "repRaceEthnicity": "White", "voteMarginPct": 3.8 },
+    { "districtId": "AZ-02", "incumbent": "Eli Crane", "party": "R", "repRaceEthnicity": "White", "voteMarginPct": 9.0 },
+    { "districtId": "AZ-03", "incumbent": "Yassamin Ansari", "party": "D", "repRaceEthnicity": "Middle Eastern", "voteMarginPct": 44.3 },
+    { "districtId": "AZ-04", "incumbent": "Greg Stanton", "party": "D", "repRaceEthnicity": "White", "voteMarginPct": 7.2 },
+    { "districtId": "AZ-05", "incumbent": "Andy Biggs", "party": "R", "repRaceEthnicity": "White", "voteMarginPct": 20.8 },
+    { "districtId": "AZ-06", "incumbent": "Juan Ciscomani", "party": "R", "repRaceEthnicity": "Latino", "voteMarginPct": 2.5 },
+    { "districtId": "AZ-07", "incumbent": "Raul Grijalva", "party": "D", "repRaceEthnicity": "Latino", "voteMarginPct": 26.8 },
+    { "districtId": "AZ-08", "incumbent": "Abraham Hamadeh", "party": "R", "repRaceEthnicity": "Middle Eastern", "voteMarginPct": 13.0 },
+    { "districtId": "AZ-09", "incumbent": "Paul Gosar", "party": "R", "repRaceEthnicity": "White", "voteMarginPct": 30.6 }
+  ]
+}
+

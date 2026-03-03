@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import representationRows from '../data/mock/representationRows.json'
+import representationRows from '../data/representation.json'
 import { FEASIBLE_THRESHOLD_MILLIONS, getFeasibleGroupKeys, RACIAL_GROUPS } from '../data/racialGroupConfig'
 import stateSummary from '../data/mock/stateSummary.json'
 import useAppStore from '../store/useAppStore'
