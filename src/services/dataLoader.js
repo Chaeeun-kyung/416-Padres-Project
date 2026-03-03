@@ -26,6 +26,7 @@ export async function loadPrecinctGeoJSON(stateCode) {
   }
 
   const geojson = await response.json()
+  console.log("First Precint Properties:", geojson?.features?.[0]?.properties)
   geojson.features = (geojson.features ?? []).map(normalizeFeature)
   precinctCache.set(stateCode, geojson)
   return geojson
