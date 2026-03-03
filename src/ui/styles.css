@@ -415,6 +415,30 @@ select:focus-visible {
   flex-direction: column;
 }
 
+.drawer__resize-handle {
+  height: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+.drawer__resize-handle::before {
+  content: '';
+  width: 58px;
+  height: 4px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  transition: background-color 0.16s ease, transform 0.16s ease;
+}
+
+.drawer__resize-handle:hover::before,
+.drawer__resize-handle--active::before {
+  background: #94a3b8;
+  transform: scaleX(1.03);
+}
+
 .drawer__header {
   display: flex;
   align-items: center;
