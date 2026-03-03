@@ -26,7 +26,7 @@ function TabPanelContent({ tab, selectedStateCode, precinctFeatures, mapError, e
   }
 
   if (tab === 'EI') {
-    return <EICurve stateCode={selectedStateCode} />
+    return <EICurve stateCode={selectedStateCode} features={precinctFeatures} />
   }
 
   if (tab === 'Ensembles') {
