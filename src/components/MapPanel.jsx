@@ -71,6 +71,21 @@ const DISTRICT_SELECTED_STROKE = '#4E9A53'
 const DISTRICT_SELECTED_FILL = '#E6F6E8'
 const DISTRICT_DEFAULT_STROKE = '#0f172a'
 
+const DISTRICT_FILL_PALETTE = [
+  '#bfdbfe', // blue-200
+  '#bbf7d0', // green-200
+  '#fef08a', // yellow-200
+  '#fecaca', // red-200
+  '#ddd6fe', // violet-200
+  '#a7f3d0', // emerald-200
+  '#fed7aa', // orange-200
+  '#bae6fd', // sky-200
+  '#fbcfe8', // pink-200
+  '#d9f99d', // lime-200
+  '#e9d5ff', // purple-200
+  '#ccfbf1', // teal-200
+]
+
 function BoundsController({ bounds }) {
   const map = useMap()
 
@@ -157,7 +172,7 @@ function ChoroplethLegend({ binResult }) {
   )
 }
 
-function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapData, setMapError }) {
+function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapData, setMapError, loadingMapData }) {
   const showPrecinctBoundaries = useAppStore((state) => state.showPrecinctBoundaries)
   const showDemLeadOverlay = useAppStore((state) => state.showDemLeadOverlay)
   const showDistrictBoundaries = useAppStore((state) => state.showDistrictBoundaries)
@@ -303,12 +318,26 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   function districtStyle(featureValue) {
     const districtId = getDistrictIdForFeature(featureValue?.properties, selectedStateCode)
     const isSelected = districtId && selectedDistrictId && String(districtId) === String(selectedDistrictId)
+
+    if (isSelected) {
+      return {
+        color: DISTRICT_SELECTED_STROKE,
+        weight: 5.4,
+        opacity: 1,
+        fillColor: DISTRICT_SELECTED_FILL,
+        fillOpacity: 0.6,
+      }
+    }
+
+    const districtNum = parseInt(districtId?.split('-')[1] ?? '1', 10)
+    const fillColor = DISTRICT_FILL_PALETTE[(districtNum - 1) % DISTRICT_FILL_PALETTE.length]
+
     return {
-      color: isSelected ? DISTRICT_SELECTED_STROKE : DISTRICT_DEFAULT_STROKE,
-      weight: isSelected ? 5.4 : 2.2,
-      opacity: isSelected ? 1 : 0.9,
-      fillColor: isSelected ? DISTRICT_SELECTED_FILL : 'transparent',
-      fillOpacity: isSelected ? 0.4 : 0,
+      color: DISTRICT_DEFAULT_STROKE,
+      weight: 2.2,
+      opacity: 0.9,
+      fillColor,
+      fillOpacity: hasMetricSelection ? 0 : 0.35,
     }
   }
 
@@ -383,6 +412,49 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
           />
         )}
       </MapContainer>
+
+      {/* Enacted plan badge */}
+      {!loadingMapData && showDistrictBoundaries && districtGeojson && (
+        <div
+          className="panel-card"
+          style={{
+            position: 'absolute',
+            left: 10,
+            top: 10,
+            zIndex: 500,
+            padding: '5px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            pointerEvents: 'none',
+          }}
+        >
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0f172a', flexShrink: 0 }} />
+          <span className="small-text" style={{ fontWeight: 700 }}>Enacted District Plan</span>
+          <span className="small-text muted-text">119th Congress</span>
+        </div>
+      )}
+
+      {/* Loading overlay */}
+      {loadingMapData && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 600,
+            background: 'rgba(255,255,255,0.65)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 'var(--ui-radius-lg)',
+            pointerEvents: 'none',
+          }}
+        >
+          <div className="panel-card" style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span className="small-text" style={{ fontWeight: 600 }}>Loading district plan…</span>
+          </div>
+        </div>
+      )}
 
       {hasMetricSelection && <ChoroplethLegend binResult={binResult} />}
     </section>

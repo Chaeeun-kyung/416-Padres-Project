@@ -91,6 +91,7 @@ function StateDashboard() {
           onPrecinctGeojsonLoaded={setPrecinctGeojson}
           setLoadingMapData={setLoadingMapData}
           setMapError={setMapError}
+          loadingMapData={loadingMapData}
         />
         <div
           className={`dashboard-resize-handle${isResizingSidebar ? ' dashboard-resize-handle--active' : ''}`}
