@@ -67,24 +67,35 @@ function getDistrictIdForFeature(featureProperties, stateCode) {
   return geoidCode ? `${stateCode}-${geoidCode}` : null
 }
 
-const DISTRICT_SELECTED_STROKE = '#4E9A53'
-const DISTRICT_SELECTED_FILL = '#E6F6E8'
-const DISTRICT_DEFAULT_STROKE = '#0f172a'
+const DISTRICT_SELECTED_NEUTRAL_STROKE = '#166534'
+const DISTRICT_SELECTED_NEUTRAL_FILL = '#DCFCE7'
+const DISTRICT_SELECTED_DEM_STROKE = '#1D4ED8'
+const DISTRICT_SELECTED_DEM_FILL = '#DBEAFE'
+const DISTRICT_SELECTED_REP_STROKE = '#B91C1C'
+const DISTRICT_SELECTED_REP_FILL = '#FEE2E2'
+const DISTRICT_DEFAULT_STROKE = '#334155'
 
 const DISTRICT_FILL_PALETTE = [
-  '#bfdbfe', // blue-200
-  '#bbf7d0', // green-200
-  '#fef08a', // yellow-200
-  '#fecaca', // red-200
-  '#ddd6fe', // violet-200
-  '#a7f3d0', // emerald-200
-  '#fed7aa', // orange-200
-  '#bae6fd', // sky-200
-  '#fbcfe8', // pink-200
-  '#d9f99d', // lime-200
-  '#e9d5ff', // purple-200
-  '#ccfbf1', // teal-200
+  '#A0C4FF',
+  '#BDB2FF',
+  '#FFC6FF',
+  '#FFD6A5',
+  '#FDFFB6',
+  '#CAFFBF',
+  '#9BF6FF',
+  '#FAD2E1',
+  '#CDEAC0',
+  '#C9E4FF',
+  '#FEE440',
+  '#D3F8E2',
 ]
+
+function getDistrictColor(districtId) {
+  const districtNum = parseInt(districtId?.split('-')[1] ?? '1', 10)
+  const safeDistrictNum = Number.isFinite(districtNum) && districtNum > 0 ? districtNum : 1
+  const paletteIndex = ((safeDistrictNum - 1) * 5) % DISTRICT_FILL_PALETTE.length
+  return DISTRICT_FILL_PALETTE[paletteIndex]
+}
 
 function BoundsController({ bounds }) {
   const map = useMap()
@@ -199,17 +210,19 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
       setStateBounds(null)
       onPrecinctGeojsonLoaded(null)
       try {
-        const precinctData = await loadPrecinctGeoJSON(selectedStateCode)
+        const [precinctData, explicitDistricts] = await Promise.all([
+          loadPrecinctGeoJSON(selectedStateCode),
+          loadDistrictGeoJSON(selectedStateCode),
+        ])
         if (!mounted) return
 
         setPrecinctGeojson(precinctData)
         onPrecinctGeojsonLoaded(precinctData)
 
-        const bounds = deriveStateBounds(precinctData?.features ?? [])
+        const bounds = deriveStateBounds(
+          explicitDistricts?.features?.length ? explicitDistricts.features : precinctData?.features ?? [],
+        )
         setStateBounds(bounds)
-
-        const explicitDistricts = await loadDistrictGeoJSON(selectedStateCode)
-        if (!mounted) return
 
         setDistrictGeojson(explicitDistricts)
       } catch (error) {
@@ -271,6 +284,43 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     )
   }, [displayMetric, hasMetricSelection, metricLookup.values, precinctGeojson?.features, selectedStateCode])
 
+  const districtPartisanLean = useMemo(() => {
+    const voteTotalsByDistrict = new Map()
+
+    ;(precinctGeojson?.features ?? []).forEach((featureValue) => {
+      const props = featureValue?.properties ?? {}
+      const districtId = getDistrictIdForFeature(props, selectedStateCode)
+      if (!districtId) return
+
+      const currentTotals = voteTotalsByDistrict.get(districtId) ?? { dem: 0, rep: 0 }
+      const demVotes = Number(props.votes_dem)
+      const repVotes = Number(props.votes_rep)
+
+      if (Number.isFinite(demVotes)) {
+        currentTotals.dem += demVotes
+      }
+
+      if (Number.isFinite(repVotes)) {
+        currentTotals.rep += repVotes
+      }
+
+      voteTotalsByDistrict.set(districtId, currentTotals)
+    })
+
+    const leanByDistrict = new Map()
+    voteTotalsByDistrict.forEach((totals, districtId) => {
+      if (totals.dem > totals.rep) {
+        leanByDistrict.set(districtId, 'dem')
+      } else if (totals.rep > totals.dem) {
+        leanByDistrict.set(districtId, 'rep')
+      } else {
+        leanByDistrict.set(districtId, 'neutral')
+      }
+    })
+
+    return leanByDistrict
+  }, [precinctGeojson?.features, selectedStateCode])
+
   function makePrecinctFillStyle(feature) {
     const geoid = String(feature?.properties?.GEOID ?? '')
     const metricValue = metricLookup.byGeoId.get(geoid)
@@ -287,10 +337,10 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   function makePrecinctOutlineStyle(feature) {
     const isSelected = String(feature?.properties?.GEOID) === String(selectedPrecinctId)
     return {
-      color: isSelected ? '#a16207' : '#64748b',
+        color: isSelected ? '#BE123C' : '#0EA5E9',
       weight: isSelected ? 2 : 0.3,
       fillOpacity: 0,
-      opacity: 0.85,
+        opacity: 0.9,
     }
   }
 
@@ -320,24 +370,31 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     const isSelected = districtId && selectedDistrictId && String(districtId) === String(selectedDistrictId)
 
     if (isSelected) {
+      const lean = districtPartisanLean.get(districtId)
+      const selectedColors =
+        lean === 'dem'
+          ? { stroke: DISTRICT_SELECTED_DEM_STROKE, fill: DISTRICT_SELECTED_DEM_FILL }
+          : lean === 'rep'
+            ? { stroke: DISTRICT_SELECTED_REP_STROKE, fill: DISTRICT_SELECTED_REP_FILL }
+            : { stroke: DISTRICT_SELECTED_NEUTRAL_STROKE, fill: DISTRICT_SELECTED_NEUTRAL_FILL }
+
       return {
-        color: DISTRICT_SELECTED_STROKE,
+        color: selectedColors.stroke,
         weight: 5.4,
         opacity: 1,
-        fillColor: DISTRICT_SELECTED_FILL,
+        fillColor: selectedColors.fill,
         fillOpacity: 0.6,
       }
     }
 
-    const districtNum = parseInt(districtId?.split('-')[1] ?? '1', 10)
-    const fillColor = DISTRICT_FILL_PALETTE[(districtNum - 1) % DISTRICT_FILL_PALETTE.length]
+    const fillColor = getDistrictColor(districtId)
 
     return {
       color: DISTRICT_DEFAULT_STROKE,
-      weight: 2.2,
-      opacity: 0.9,
+      weight: 1.8,
+      opacity: 0.95,
       fillColor,
-      fillOpacity: hasMetricSelection ? 0 : 0.35,
+      fillOpacity: hasMetricSelection ? 0 : 0.58,
     }
   }
 
