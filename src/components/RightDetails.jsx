@@ -463,6 +463,7 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
 
   const totalPages = canShowRepresentationPage ? 2 : 1
   const effectivePage = canShowRepresentationPage ? detailsPage : 0
+  const isEnsembleTab = activeTab === 'Ensemble' || activeTab === 'Ensembles'
 
   return (
     <aside className="dashboard-sidebar">
@@ -526,7 +527,7 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
             <Card title="Ensemble Summary">
               <EnsembleSummaryTable />
             </Card>
-            {activeTab === 'Ensemble' && (
+            {isEnsembleTab && (
               <Card title="Ensemble Histogram (GUI-16)">
                 <div style={{ width: '100%', height: 300 }}>
                   <EnsembleHistogram stateCode={selectedStateCode} />
@@ -534,7 +535,7 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
               </Card>
             )}
 
-            {activeTab === 'Ensemble' && (
+            {isEnsembleTab && (
               <Card title="Ensemble Comparison (GUI-17)">
                 <div style={{ width: '100%', height: 320 }}>
                   <EnsembleBoxplot stateCode={selectedStateCode} />

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { GeoJSON, MapContainer, TileLayer, useMap } from 'react-leaflet'
 import { feature } from 'topojson-client'
 import statesTopo from 'us-atlas/states-10m.json'
@@ -27,23 +27,23 @@ function normalizePct(value) {
 
 function resolveMetricValue(properties, metricKey) {
   if (!metricKey) {
-    return { value: null, isFallback: false }
+    return null
   }
 
   if (metricKey === 'pct_dem_lead') {
     const value = Number(properties?.pct_dem_lead)
-    return Number.isFinite(value) ? { value, isFallback: false } : { value: null, isFallback: true }
+    return Number.isFinite(value) ? value : null
   }
 
   const candidates = DEMOGRAPHIC_FIELD_CANDIDATES[metricKey] ?? [metricKey]
   for (let i = 0; i < candidates.length; i += 1) {
     const normalized = normalizePct(Number(properties?.[candidates[i]]))
     if (normalized !== null) {
-      return { value: normalized, isFallback: false }
+      return normalized
     }
   }
 
-  return { value: null, isFallback: true }
+  return null
 }
 
 function normalizeDistrictCode(rawCode) {
@@ -95,6 +95,93 @@ function getDistrictColor(districtId) {
   const safeDistrictNum = Number.isFinite(districtNum) && districtNum > 0 ? districtNum : 1
   const paletteIndex = ((safeDistrictNum - 1) * 5) % DISTRICT_FILL_PALETTE.length
   return DISTRICT_FILL_PALETTE[paletteIndex]
+}
+
+function pointInRing(point, ring) {
+  if (!Array.isArray(ring) || ring.length < 3) return false
+  const [x, y] = point
+  let inside = false
+
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
+    const [xi, yi] = ring[i]
+    const [xj, yj] = ring[j]
+    const intersects = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi || Number.EPSILON) + xi
+    if (intersects) inside = !inside
+  }
+
+  return inside
+}
+
+function pointInPolygon(point, polygonCoords) {
+  if (!Array.isArray(polygonCoords) || !polygonCoords.length) return false
+  if (!pointInRing(point, polygonCoords[0])) return false
+
+  for (let i = 1; i < polygonCoords.length; i += 1) {
+    if (pointInRing(point, polygonCoords[i])) return false
+  }
+  return true
+}
+
+function pointInGeometry(point, geometry) {
+  if (!geometry) return false
+  if (geometry.type === 'Polygon') {
+    return pointInPolygon(point, geometry.coordinates)
+  }
+  if (geometry.type === 'MultiPolygon') {
+    return (geometry.coordinates ?? []).some((polygon) => pointInPolygon(point, polygon))
+  }
+  return false
+}
+
+function getGeometryFirstPoint(geometry) {
+  const coords = geometry?.coordinates
+  if (!Array.isArray(coords)) return null
+
+  function walk(node) {
+    if (!Array.isArray(node)) return null
+    if (typeof node[0] === 'number' && typeof node[1] === 'number') {
+      return [Number(node[0]), Number(node[1])]
+    }
+    for (let i = 0; i < node.length; i += 1) {
+      const found = walk(node[i])
+      if (found) return found
+    }
+    return null
+  }
+
+  return walk(coords)
+}
+
+function getGeometryBoundsCenter(geometry) {
+  const coords = geometry?.coordinates
+  if (!Array.isArray(coords)) return null
+
+  let minLng = Infinity
+  let minLat = Infinity
+  let maxLng = -Infinity
+  let maxLat = -Infinity
+
+  function walk(node) {
+    if (!Array.isArray(node)) return
+    if (typeof node[0] === 'number' && typeof node[1] === 'number') {
+      const lng = Number(node[0])
+      const lat = Number(node[1])
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return
+      minLng = Math.min(minLng, lng)
+      minLat = Math.min(minLat, lat)
+      maxLng = Math.max(maxLng, lng)
+      maxLat = Math.max(maxLat, lat)
+      return
+    }
+    for (let i = 0; i < node.length; i += 1) {
+      walk(node[i])
+    }
+  }
+
+  walk(coords)
+
+  if (!Number.isFinite(minLng) || !Number.isFinite(minLat)) return null
+  return [(minLng + maxLng) / 2, (minLat + maxLat) / 2]
 }
 
 function BoundsController({ bounds }) {
@@ -162,9 +249,6 @@ function ChoroplethLegend({ binResult }) {
       }}
     >
       <div style={{ fontWeight: 700, marginBottom: 4 }}>{binResult.metricLabel}</div>
-      <div className="small-text muted-text" style={{ marginBottom: 8 }}>
-        Bin source: {binResult.source}
-      </div>
       {binResult.bins.map((bin, index) => (
         <div key={`${bin.min}-${bin.max}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
           <span
@@ -188,10 +272,8 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   const showDemLeadOverlay = useAppStore((state) => state.showDemLeadOverlay)
   const showDistrictBoundaries = useAppStore((state) => state.showDistrictBoundaries)
   const activeMetric = useAppStore((state) => state.activeMetric)
-  const selectedPrecinctId = useAppStore((state) => state.selectedPrecinctId)
   const selectedDistrictId = useAppStore((state) => state.selectedDistrictId)
   const mapResetToken = useAppStore((state) => state.mapResetToken)
-  const setSelectedPrecinctId = useAppStore((state) => state.setSelectedPrecinctId)
   const setSelectedDistrictId = useAppStore((state) => state.setSelectedDistrictId)
 
   const [precinctGeojson, setPrecinctGeojson] = useState(null)
@@ -248,9 +330,9 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
 
     ;(precinctGeojson?.features ?? []).forEach((featureValue, index) => {
       const props = featureValue?.properties ?? {}
-      const result = resolveMetricValue(props, displayMetric)
-      values.push(result.value)
-      byGeoId.set(String(props.GEOID ?? index), result.value)
+      const value = resolveMetricValue(props, displayMetric)
+      values.push(value)
+      byGeoId.set(String(props.GEOID ?? index), value)
     })
 
     return { values, byGeoId }
@@ -276,20 +358,45 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
       return null
     }
 
-    return resolveBinsForMetric(
-      selectedStateCode,
-      displayMetric,
-      precinctGeojson?.features ?? [],
-      metricLookup.values,
-    )
-  }, [displayMetric, hasMetricSelection, metricLookup.values, precinctGeojson?.features, selectedStateCode])
+    return resolveBinsForMetric(displayMetric, precinctGeojson?.features ?? [], metricLookup.values)
+  }, [displayMetric, hasMetricSelection, metricLookup.values, precinctGeojson?.features])
+
+  const districtGeometries = useMemo(
+    () =>
+      (districtGeojson?.features ?? [])
+        .map((featureValue) => ({
+          districtId: getDistrictIdForFeature(featureValue?.properties, selectedStateCode),
+          geometry: featureValue?.geometry ?? null,
+        }))
+        .filter((entry) => entry.districtId && entry.geometry),
+    [districtGeojson?.features, selectedStateCode],
+  )
+
+  const findDistrictIdForPoint = useCallback((point) => {
+    if (!Array.isArray(point) || point.length < 2) return null
+    const [lng, lat] = point
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+
+    const match = districtGeometries.find((entry) => pointInGeometry([lng, lat], entry.geometry))
+    return match?.districtId ?? null
+  }, [districtGeometries])
+
+  function findDistrictIdForLatLng(latlng) {
+    const lng = Number(latlng?.lng)
+    const lat = Number(latlng?.lat)
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+
+    return findDistrictIdForPoint([lng, lat])
+  }
 
   const districtPartisanLean = useMemo(() => {
     const voteTotalsByDistrict = new Map()
 
     ;(precinctGeojson?.features ?? []).forEach((featureValue) => {
       const props = featureValue?.properties ?? {}
-      const districtId = getDistrictIdForFeature(props, selectedStateCode)
+      const centerPoint = getGeometryBoundsCenter(featureValue?.geometry)
+      const firstPoint = getGeometryFirstPoint(featureValue?.geometry)
+      const districtId = findDistrictIdForPoint(centerPoint) ?? findDistrictIdForPoint(firstPoint)
       if (!districtId) return
 
       const currentTotals = voteTotalsByDistrict.get(districtId) ?? { dem: 0, rep: 0 }
@@ -319,48 +426,41 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     })
 
     return leanByDistrict
-  }, [precinctGeojson?.features, selectedStateCode])
+  }, [precinctGeojson?.features, findDistrictIdForPoint])
 
   function makePrecinctFillStyle(feature) {
     const geoid = String(feature?.properties?.GEOID ?? '')
     const metricValue = metricLookup.byGeoId.get(geoid)
-    const isSelected = String(feature?.properties?.GEOID) === String(selectedPrecinctId)
     return {
-      color: isSelected && !showPrecinctBoundaries ? '#a16207' : 'transparent',
-      weight: isSelected && !showPrecinctBoundaries ? 2 : 0,
+      color: 'transparent',
+      weight: 0,
       opacity: 1,
       fillColor: hasMetricSelection ? getColorForValue(metricValue, binResult?.bins ?? [], binResult?.colors ?? []) : '#cbd5e1',
       fillOpacity: hasMetricSelection ? 0.72 : 0,
     }
   }
 
-  function makePrecinctOutlineStyle(feature) {
-    const isSelected = String(feature?.properties?.GEOID) === String(selectedPrecinctId)
+  function makePrecinctOutlineStyle() {
     return {
-        color: isSelected ? '#BE123C' : '#0EA5E9',
-      weight: isSelected ? 2 : 0.3,
+      color: '#0EA5E9',
+      weight: 0.3,
       fillOpacity: 0,
-        opacity: 0.9,
+      opacity: 0.9,
     }
   }
 
   function onEachPrecinct(featureValue, layer) {
     const props = featureValue.properties ?? {}
     const metricValue = metricLookup.byGeoId.get(String(props.GEOID ?? ''))
-    const metricText = !hasMetricSelection
-      ? 'N/A'
-      : displayMetric === 'pct_dem_lead'
-        ? `${(Number(metricValue ?? 0) * 100).toFixed(1)}%`
-        : `${Math.round(Number(metricValue ?? 0) * 100)}%`
-    const metricLabel = hasMetricSelection ? binResult?.metricLabel ?? displayMetric : 'Selected metric'
-    layer.bindTooltip(
-      `GEOID: ${props.GEOID ?? 'N/A'} | Dem: ${props.votes_dem ?? 0} | Rep: ${props.votes_rep ?? 0} | Total: ${
-        props.votes_total ?? 0
-      } | ${metricLabel}: ${metricText}`,
-    )
+    const metricText = displayMetric === 'pct_dem_lead'
+      ? `${(Number(metricValue ?? 0) * 100).toFixed(1)}%`
+      : `${Math.round(Number(metricValue ?? 0) * 100)}%`
+    const metricLabel = binResult?.metricLabel ?? displayMetric
+    const metricSegment = hasMetricSelection ? ` | ${metricLabel}: ${metricText}` : ''
+    layer.bindTooltip(`GEOID: ${props.GEOID ?? 'N/A'} | Dem: ${props.votes_dem ?? 0} | Rep: ${props.votes_rep ?? 0} | Total: ${props.votes_total ?? 0}${metricSegment}`)
     layer.on({
-      click: () => {
-        setSelectedPrecinctId(props.GEOID ?? null)
+      click: (event) => {
+        setSelectedDistrictId(findDistrictIdForLatLng(event?.latlng))
       },
     })
   }
@@ -462,7 +562,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
 
         {precinctGeojson && showPrecinctBoundaries && (
           <GeoJSON
-            key={`precincts-outline-${selectedStateCode}`}
+            key={`precincts-outline-${selectedStateCode}-${displayMetric || 'none'}`}
             data={precinctGeojson}
             style={makePrecinctOutlineStyle}
             onEachFeature={onEachPrecinct}
@@ -508,7 +608,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
           }}
         >
           <div className="panel-card" style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="small-text" style={{ fontWeight: 600 }}>Loading district plan…</span>
+            <span className="small-text" style={{ fontWeight: 600 }}>Loading district plan...</span>
           </div>
         </div>
       )}
