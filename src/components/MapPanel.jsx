@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { GeoJSON, MapContainer, TileLayer, useMap } from 'react-leaflet'
+import { GeoJSON, MapContainer, TileLayer, useMap, ZoomControl } from 'react-leaflet'
 import { feature } from 'topojson-client'
 import statesTopo from 'us-atlas/states-10m.json'
 import { resolveBinsForMetric, getColorForValue } from '../services/bins'
@@ -432,11 +432,11 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     const geoid = String(feature?.properties?.GEOID ?? '')
     const metricValue = metricLookup.byGeoId.get(geoid)
     return {
-      color: 'transparent',
-      weight: 0,
-      opacity: 1,
+      color: hasMetricSelection ? '#8A6A00' : 'transparent',
+      weight: hasMetricSelection ? 0.22 : 0,
+      opacity: hasMetricSelection ? 0.45 : 1,
       fillColor: hasMetricSelection ? getColorForValue(metricValue, binResult?.bins ?? [], binResult?.colors ?? []) : '#cbd5e1',
-      fillOpacity: hasMetricSelection ? 0.72 : 0,
+      fillOpacity: hasMetricSelection ? 0.78 : 0,
     }
   }
 
@@ -519,12 +519,14 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
         center={STATE_META[selectedStateCode]?.center ?? [39.1, -104.9]}
         zoom={STATE_META[selectedStateCode]?.zoom ?? 7}
         minZoom={5}
+        zoomControl={false}
         style={{ width: '100%', height: '100%' }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <ZoomControl position="bottomleft" />
 
         <BoundsController bounds={stateBounds} />
         <MapResizeSync />

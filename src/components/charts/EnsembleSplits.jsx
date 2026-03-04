@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import ensembleSplits from '../../data/mock/ensembleSplits.json'
 import { STATE_META } from '../../data/stateMeta'
+import Info from '../../ui/components/Info'
 
 function EnsembleSplits({ stateCode }) {
   const stateData = ensembleSplits?.[stateCode]
@@ -40,9 +41,12 @@ function EnsembleSplits({ stateCode }) {
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>Ensemble Split Comparison</div>
-      <div className="small-text muted-text" style={{ marginBottom: 6 }}>
-        Frequency of election splits (#Republican / #Democratic seats), with matched split range
+      <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ fontWeight: 700 }}>Ensemble Split Comparison</div>
+        <Info
+          label="Ensemble split info"
+          text="Frequency of election splits (#Republican / #Democratic seats), aligned to a matched split range across ensembles."
+        />
       </div>
       <ResponsiveContainer width="100%" height="91%">
         <BarChart data={data} margin={{ top: 12, right: 16, left: 8, bottom: 18 }}>

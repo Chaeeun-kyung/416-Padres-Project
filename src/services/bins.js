@@ -1,4 +1,4 @@
-const DEFAULT_DEMOGRAPHIC_COLORS = ['#440154', '#46327e', '#365c8d', '#277f8e', '#1fa187', '#4ac16d', '#a0da39']
+const DEFAULT_DEMOGRAPHIC_COLORS = ['#FFFFCC', '#FFF099', '#FFE880', '#FFD94D', '#FFCA1A', '#F0B400', '#CC9000']
 const DEFAULT_GENERAL_COLORS = ['#2166ac', '#4393c3', '#92c5de', '#f7f7f7', '#f4a582', '#d6604d', '#b2182b']
 const METRIC_LABELS = {
   pct_dem_lead: 'Dem Lead % (2024)',

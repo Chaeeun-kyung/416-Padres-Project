@@ -4,6 +4,7 @@ import { buildGroupOptions, FEASIBLE_THRESHOLD_MILLIONS } from '../../data/racia
 import stateSummary from '../../data/mock/stateSummary.json'
 import metricConfig from '../../data/mock/metricConfig.json'
 import eiCurves from '../../data/mock/eiCurves.json'
+import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
 
 const DEM_COLOR = '#2563eb'
@@ -177,21 +178,23 @@ function GinglesScatter({ stateCode, features }) {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <div>
-          <div style={{ fontWeight: 700, marginBottom: 2 }}>Gingles Analysis (GUI-9)</div>
-          <div className="small-text muted-text">
-            X: racial/ethnic group %, Y: party vote share (Democratic blue / Republican red). Feasible: over {FEASIBLE_THRESHOLD_MILLIONS.toFixed(1)}M CVAP.
-          </div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontWeight: 700 }}>Gingles Analysis (GUI-9)</div>
+          <Info
+            label="Gingles chart info"
+            text={`X: racial/ethnic group %, Y: party vote share (Democratic blue / Republican red). Feasible: over ${FEASIBLE_THRESHOLD_MILLIONS.toFixed(1)}M CVAP.`}
+          />
+          {isUsingFallbackX && (
+            <Info
+              label="Gingles data note"
+              text="Demographic percentage fields are missing in current precinct GeoJSON, so the x-axis uses deterministic mock values by GEOID."
+            />
+          )}
         </div>
-        <div style={{ width: 220 }}>
+        <div style={{ width: 190 }}>
           <Select ariaLabel="Gingles group selector" value={effectiveGroup} onChange={setSelectedGroup} options={groupOptions} />
         </div>
       </div>
-      {isUsingFallbackX && (
-        <div className="small-text muted-text" style={{ marginBottom: 8 }}>
-          Demographic percentage fields are not present in current precinct GeoJSON yet, so x-axis uses deterministic mock values by GEOID.
-        </div>
-      )}
       <ResponsiveContainer width="100%" height="90%">
         <ComposedChart margin={{ top: 8, right: 20, bottom: 20, left: 8 }}>
           <CartesianGrid stroke="#e7e9ee" strokeDasharray="3 3" />

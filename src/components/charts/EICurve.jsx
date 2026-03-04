@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { FEASIBLE_THRESHOLD_MILLIONS, RACIAL_GROUPS } from '../../data/racialGroupConfig'
+import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
 
 const GROUP_A_COLOR = '#0F766E'
@@ -64,7 +65,7 @@ function formatDensity(value) {
   return Number.isFinite(value) ? value.toFixed(2) : '0.00'
 }
 
-function EICurve({ stateCode, features = [] }) {
+function EICurve({ features = [] }) {
   const availableGroups = useMemo(() => {
     const totals = new Map()
 
@@ -94,11 +95,12 @@ function EICurve({ stateCode, features = [] }) {
         const millions = (totals.get(group.key) ?? 0) / 1000000
         return {
           value: group.key,
-          label: `${group.label}${millions >= FEASIBLE_THRESHOLD_MILLIONS ? ' (Feasible >0.4M)' : ''}`,
+          label: group.label,
           baseLabel: group.label,
           cvapMillions: millions,
         }
       })
+      .filter((group) => group.cvapMillions >= FEASIBLE_THRESHOLD_MILLIONS)
   }, [features])
 
   const [selectedGroup, setSelectedGroup] = useState('')
@@ -188,7 +190,7 @@ function EICurve({ stateCode, features = [] }) {
   }, [effectiveGroup, features])
 
   if (!availableGroups.length) {
-    return <div className="small-text muted-text">No eligible statewide CVAP group data found for EI display.</div>
+    return <div className="small-text muted-text">No feasible statewide CVAP group data found for EI display.</div>
   }
 
   const hasDensity = densityByCandidate.demRows.length > 0 && densityByCandidate.repRows.length > 0
@@ -196,13 +198,14 @@ function EICurve({ stateCode, features = [] }) {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontWeight: 700 }}>Ecological Inference</div>
-          <div className="small-text muted-text">
-            Uses statewide precinct-level 2024 Presidential results with CVAP-weighted densities. Select one group to compare with its non-group complement.
-          </div>
+          <Info
+            label="EI chart info"
+            text={`Uses statewide precinct-level 2024 Presidential results with CVAP-weighted densities. Select one feasible group (>${FEASIBLE_THRESHOLD_MILLIONS.toFixed(1)}M CVAP) to compare with its non-group complement.`}
+          />
         </div>
-        <div style={{ width: 280 }}>
+        <div style={{ width: 220 }}>
           <Select
             ariaLabel="EI demographic group"
             value={effectiveGroup}

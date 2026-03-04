@@ -1,18 +1,14 @@
 import { useEffect, useMemo } from 'react'
 import metricConfig from '../data/mock/metricConfig.json'
 import { buildGroupOptions } from '../data/racialGroupConfig'
-import { STATE_META } from '../data/stateMeta'
 import useAppStore from '../store/useAppStore'
-import Button from '../ui/components/Button'
 import Card from '../ui/components/Card'
-import SegmentedControl from '../ui/components/SegmentedControl'
 import Select from '../ui/components/Select'
 import ToggleSwitch from '../ui/components/ToggleSwitch'
 
-const TABS = ['Map', 'Gingles', 'EI', 'Ensembles']
 const STATE_OPTIONS = [
-  { value: 'CO', label: 'CO' },
-  { value: 'AZ', label: 'AZ' },
+  { value: 'CO', label: 'Colorado (CO)' },
+  { value: 'AZ', label: 'Arizona (AZ)' },
 ]
 const CVAP_TOTAL_FIELD = 'CVAP_TOT24'
 const CVAP_GROUP_FIELDS = {
@@ -62,8 +58,6 @@ function buildCvapSummaryForFeasible(features) {
 function LeftControls({ precinctGeojson }) {
   const selectedStateCode = useAppStore((state) => state.selectedStateCode)
   const setSelectedStateCode = useAppStore((state) => state.setSelectedStateCode)
-  const activeTab = useAppStore((state) => state.activeTab)
-  const setActiveTab = useAppStore((state) => state.setActiveTab)
   const showDistrictBoundaries = useAppStore((state) => state.showDistrictBoundaries)
   const showPrecinctBoundaries = useAppStore((state) => state.showPrecinctBoundaries)
   const showDemLeadOverlay = useAppStore((state) => state.showDemLeadOverlay)
@@ -104,25 +98,12 @@ function LeftControls({ precinctGeojson }) {
   return (
     <aside className="dashboard-sidebar">
       <Card title="State" subtitle="- Select a state">
-        <SegmentedControl
+        <Select
           ariaLabel="State selector"
-          options={STATE_OPTIONS}
-          value={selectedStateCode}
+          value={selectedStateCode ?? ''}
           onChange={setSelectedStateCode}
+          options={STATE_OPTIONS}
         />
-        <div className="small-text" style={{ marginTop: 'var(--ui-space-sm)', fontWeight: 700, color: 'var(--ui-text)' }}>
-          {STATE_META[selectedStateCode]?.name ?? 'No state selected'}
-        </div>
-      </Card>
-
-      <Card title="Map/Charts" subtitle="- Choose one of these options">
-        <div className="plan-tabs">
-          {TABS.map((tab) => (
-            <Button key={tab} variant={activeTab === tab ? 'primary' : 'ghost'} block onClick={() => setActiveTab(tab)}>
-              {tab === 'Ensembles' ? 'Ensemble Analysis' : tab}
-            </Button>
-          ))}
-        </div>
       </Card>
 
       <Card title="Boundaries">
