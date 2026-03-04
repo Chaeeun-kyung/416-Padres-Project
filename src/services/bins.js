@@ -1,6 +1,4 @@
-import binConfig from '../data/mock/binConfig.json'
-
-const DEFAULT_DEMOGRAPHIC_COLORS = ['#440154', '#46327e', '#365c8d', '#277f8e', '#1fa187', '#4ac16d', '#a0da39']
+const DEFAULT_DEMOGRAPHIC_COLORS = ['#FFFFCC', '#FFF099', '#FFE880', '#FFD94D', '#FFCA1A', '#F0B400', '#CC9000']
 const DEFAULT_GENERAL_COLORS = ['#2166ac', '#4393c3', '#92c5de', '#f7f7f7', '#f4a582', '#d6604d', '#b2182b']
 const METRIC_LABELS = {
   pct_dem_lead: 'Dem Lead % (2024)',
@@ -10,9 +8,53 @@ const METRIC_LABELS = {
   native_american_pct: 'Native American Population %',
   asian_pct: 'Asian Population %',
 }
+// Bin count = round(sqrt(unique integer % values)), then clamp to [4, 7].
+const MIN_BIN_COUNT = 4
+const MAX_BIN_COUNT = 7
+const DEMOGRAPHIC_NICE_STEPS = [5, 10, 20, 25, 50]
 
 function isDemographicMetric(metricKey) {
   return metricKey !== 'pct_dem_lead' && String(metricKey).endsWith('_pct')
+}
+
+function chooseBinCount(minPct, maxPct, values) {
+  const rangePct = Math.max(1, maxPct - minPct)
+  const uniqueIntegerPctCount = new Set(values.map((value) => Math.round(value * 100))).size
+  const dataDrivenCount = Math.round(Math.sqrt(uniqueIntegerPctCount || 1))
+  const clampedCount = Math.max(MIN_BIN_COUNT, Math.min(MAX_BIN_COUNT, dataDrivenCount))
+  return Math.max(1, Math.min(clampedCount, rangePct))
+}
+
+function chooseNiceStep(rangePct, targetBinCount, candidateSteps) {
+  const safeRange = Math.max(1, rangePct)
+  const safeTarget = Math.max(1, targetBinCount)
+  const rawStep = safeRange / safeTarget
+
+  let best = null
+  for (let i = 0; i < candidateSteps.length; i += 1) {
+    const step = candidateSteps[i]
+    const binCount = Math.ceil(safeRange / step)
+    if (binCount < MIN_BIN_COUNT || binCount > MAX_BIN_COUNT) {
+      continue
+    }
+
+    const score = Math.abs(binCount - safeTarget) * 10 + Math.abs(step - rawStep)
+    if (!best || score < best.score) {
+      best = { step, score }
+    }
+  }
+
+  if (best) {
+    return best.step
+  }
+
+  for (let i = 0; i < candidateSteps.length; i += 1) {
+    const step = candidateSteps[i]
+    if (Math.ceil(safeRange / step) <= MAX_BIN_COUNT) {
+      return step
+    }
+  }
+  return candidateSteps[candidateSteps.length - 1]
 }
 
 function formatPctLabel(value) {
@@ -24,51 +66,101 @@ function formatPctLabel(value) {
   return `${roundedToTenth.toFixed(1)}%`
 }
 
-function buildEqualBins(minValue, maxValue, count = 7) {
-  if (!Number.isFinite(minValue) || !Number.isFinite(maxValue)) {
+function buildEqualBins(values, metricKey) {
+  const numericValues = (values ?? []).filter((value) => Number.isFinite(value))
+  if (!numericValues.length) {
     return [{ min: 0, max: 1, label: '0% to 100%' }]
   }
 
-  const normalizedMin = Number(minValue)
-  const normalizedMax = maxValue <= minValue ? minValue + 0.01 : Number(maxValue)
-  const width = (normalizedMax - normalizedMin) / count
+  const minValue = Math.min(...numericValues)
+  const maxValue = Math.max(...numericValues)
+  const demographic = isDemographicMetric(metricKey)
 
-  const bins = []
-  for (let i = 0; i < count; i += 1) {
-    const start = normalizedMin + (width * i)
-    const isLastBin = i === count - 1
-    const end = isLastBin ? normalizedMax : normalizedMin + (width * (i + 1))
-    bins.push({
-      min: start,
-      max: end,
-      label: `${formatPctLabel(start)} to ${formatPctLabel(end)}`,
+  let minPct = demographic ? 0 : (minValue === 0 ? 0 : Math.floor(minValue * 100))
+  let maxPct = Math.ceil(maxValue * 100)
+  if (maxPct <= minPct) {
+    maxPct = minPct + 1
+  }
+
+  const count = chooseBinCount(minPct, maxPct, numericValues)
+  const rangePct = maxPct - minPct
+  const stepPct = demographic
+    ? chooseNiceStep(rangePct, count, DEMOGRAPHIC_NICE_STEPS)
+    : Math.max(1, Math.ceil(rangePct / count))
+  const normalizedMaxPct = demographic ? Math.ceil(maxPct / stepPct) * stepPct : maxPct
+  const maxBins = demographic ? Number.POSITIVE_INFINITY : count
+
+  const binsWithCounts = []
+  let startPct = minPct
+  while (startPct < normalizedMaxPct && binsWithCounts.length < maxBins) {
+    const isLastBin = binsWithCounts.length === maxBins - 1 || startPct + stepPct >= normalizedMaxPct
+    const endPct = isLastBin ? normalizedMaxPct : Math.min(normalizedMaxPct, startPct + stepPct)
+    binsWithCounts.push({
+      min: startPct / 100,
+      max: endPct / 100,
+      label: `${formatPctLabel(startPct / 100)} to ${formatPctLabel(endPct / 100)}`,
+      count: 0,
     })
+    startPct = endPct
   }
 
-  if (!bins.length) {
-    return [{ min: normalizedMin, max: normalizedMax, label: `${formatPctLabel(normalizedMin)} to ${formatPctLabel(normalizedMax)}` }]
+  if (!binsWithCounts.length) {
+    return [{
+      min: minPct / 100,
+      max: normalizedMaxPct / 100,
+      label: `${formatPctLabel(minPct / 100)} to ${formatPctLabel(normalizedMaxPct / 100)}`,
+    }]
   }
 
-  return bins
+  numericValues.forEach((value) => {
+    for (let i = 0; i < binsWithCounts.length; i += 1) {
+      const bin = binsWithCounts[i]
+      const isLast = i === binsWithCounts.length - 1
+      if (value >= bin.min && (isLast ? value <= bin.max : value < bin.max)) {
+        bin.count += 1
+        break
+      }
+    }
+  })
+
+  const nonEmptyBins = binsWithCounts
+    .filter((bin) => bin.count > 0)
+    .map(({ min, max, label }) => ({ min, max, label }))
+
+  return nonEmptyBins.length
+    ? nonEmptyBins
+    : [{ min: binsWithCounts[0].min, max: binsWithCounts[0].max, label: binsWithCounts[0].label }]
 }
 
-export function resolveBinsForMetric(stateCode, metricKey, features, explicitValues = null) {
-  const configured = binConfig?.[stateCode]?.[metricKey]
+function selectColorsForBins(baseColors, count) {
+  if (!count) return []
+  if (count === 1) {
+    return [baseColors[Math.floor(baseColors.length / 2)] ?? '#334155']
+  }
 
+  return Array.from({ length: count }, (_, index) => {
+    const colorIndex = Math.round((index * (baseColors.length - 1)) / (count - 1))
+    return baseColors[colorIndex] ?? baseColors[baseColors.length - 1] ?? '#334155'
+  })
+}
+
+export function resolveBinsForMetric(metricKey, features, explicitValues = null) {
   const values = (explicitValues?.length
     ? explicitValues
     : (features ?? []).map((feature) => Number(feature?.properties?.[metricKey]))
   ).filter((value) => Number.isFinite(value))
 
-  const minValue = values.length ? Math.min(...values) : 0
-  const maxValue = values.length ? Math.max(...values) : 1
-  const colors = isDemographicMetric(metricKey) ? DEFAULT_DEMOGRAPHIC_COLORS : DEFAULT_GENERAL_COLORS
+  const baseColors = isDemographicMetric(metricKey)
+    ? DEFAULT_DEMOGRAPHIC_COLORS
+    : metricKey === 'pct_dem_lead'
+      ? [...DEFAULT_GENERAL_COLORS].reverse()
+      : DEFAULT_GENERAL_COLORS
+  const bins = buildEqualBins(values, metricKey)
 
   return {
-    bins: buildEqualBins(minValue, maxValue, 7),
-    colors,
-    metricLabel: configured?.metricLabel ?? METRIC_LABELS[metricKey] ?? metricKey,
-    source: 'equal-width',
+    bins,
+    colors: selectColorsForBins(baseColors, bins.length),
+    metricLabel: METRIC_LABELS[metricKey] ?? metricKey,
   }
 }
 

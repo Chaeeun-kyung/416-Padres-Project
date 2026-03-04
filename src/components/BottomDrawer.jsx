@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { useEffect } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import DistrictBoxplot from './charts/DistrictBoxplot'
 import EICurve from './charts/EICurve'
 import EnsembleSplits from './charts/EnsembleSplits'
@@ -15,6 +14,7 @@ const ENSEMBLE_VIEW_OPTIONS = [
   { value: 'boxplot', label: 'Box & Whisker' },
 ]
 const CHART_TABS = new Set(['Gingles', 'EI', 'Ensembles'])
+const MIN_OPEN_HEIGHT = 360
 
 function TabPanelContent({ tab, selectedStateCode, precinctFeatures, mapError, ensembleView, onEnsembleViewChange }) {
   if (mapError) {
@@ -64,15 +64,54 @@ function BottomDrawer({ selectedStateCode, precinctFeatures, mapError }) {
   const toggleBottomDrawer = useAppStore((state) => state.toggleBottomDrawer)
   const setBottomDrawerOpen = useAppStore((state) => state.setBottomDrawerOpen)
   const [ensembleView, setEnsembleView] = useState('splits')
+  const [drawerHeight, setDrawerHeight] = useState(MIN_OPEN_HEIGHT)
+  const [isResizing, setIsResizing] = useState(false)
   const isChartTab = CHART_TABS.has(activeTab)
 
-  const expandedHeight = activeTab === 'Ensembles' ? 620 : 520
+  const minOpenHeight = MIN_OPEN_HEIGHT
+  const maxOpenHeight = useMemo(() => {
+    if (typeof window === 'undefined') return minOpenHeight
+    return Math.max(minOpenHeight, Math.floor(window.innerHeight - 120))
+  }, [minOpenHeight])
+  const effectiveDrawerHeight = Math.max(minOpenHeight, Math.min(drawerHeight, maxOpenHeight))
 
   useEffect(() => {
     if (isChartTab) {
       setBottomDrawerOpen(true)
     }
   }, [activeTab, isChartTab, setBottomDrawerOpen])
+
+  const beginResize = useCallback(
+    (event) => {
+      if (!bottomDrawerOpen) return
+
+      event.preventDefault()
+      const startY = event.touches?.[0]?.clientY ?? event.clientY
+      const startHeight = effectiveDrawerHeight
+      setIsResizing(true)
+
+      const onMove = (moveEvent) => {
+        const clientY = moveEvent.touches?.[0]?.clientY ?? moveEvent.clientY
+        const delta = startY - clientY
+        const nextHeight = Math.max(minOpenHeight, Math.min(startHeight + delta, maxOpenHeight))
+        setDrawerHeight(nextHeight)
+      }
+
+      const onEnd = () => {
+        setIsResizing(false)
+        window.removeEventListener('mousemove', onMove)
+        window.removeEventListener('mouseup', onEnd)
+        window.removeEventListener('touchmove', onMove)
+        window.removeEventListener('touchend', onEnd)
+      }
+
+      window.addEventListener('mousemove', onMove)
+      window.addEventListener('mouseup', onEnd)
+      window.addEventListener('touchmove', onMove, { passive: false })
+      window.addEventListener('touchend', onEnd)
+    },
+    [bottomDrawerOpen, effectiveDrawerHeight, maxOpenHeight, minOpenHeight],
+  )
 
   if (!isChartTab) {
     return null
@@ -82,12 +121,23 @@ function BottomDrawer({ selectedStateCode, precinctFeatures, mapError }) {
     <section
       className="drawer"
       style={{
-        minHeight: bottomDrawerOpen ? 360 : 52,
-        maxHeight: bottomDrawerOpen ? expandedHeight : 52,
+        minHeight: bottomDrawerOpen ? minOpenHeight : 52,
+        maxHeight: bottomDrawerOpen ? maxOpenHeight : 52,
+        height: bottomDrawerOpen ? effectiveDrawerHeight : 52,
         display: 'flex',
       }}
     >
       <Card noPadding className="drawer">
+        {bottomDrawerOpen && (
+          <div
+            className={`drawer__resize-handle${isResizing ? ' drawer__resize-handle--active' : ''}`}
+            onMouseDown={beginResize}
+            onTouchStart={beginResize}
+            role="separator"
+            aria-label="Resize charts drawer"
+            aria-orientation="horizontal"
+          />
+        )}
         <div className="drawer__header">
           <div className="ui-card__title">Charts Drawer</div>
           <Button variant="ghost" onClick={toggleBottomDrawer}>

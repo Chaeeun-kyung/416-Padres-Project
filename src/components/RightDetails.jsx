@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import representationRows from '../data/mock/representationRows.json'
+import representationRows from '../data/representation.json'
 import { FEASIBLE_THRESHOLD_MILLIONS, getFeasibleGroupKeys, RACIAL_GROUPS } from '../data/racialGroupConfig'
 import stateSummary from '../data/mock/stateSummary.json'
 import useAppStore from '../store/useAppStore'
 import Button from '../ui/components/Button'
 import Card from '../ui/components/Card'
+import Select from '../ui/components/Select'
 import ToggleSwitch from '../ui/components/ToggleSwitch'
 import RepresentationTable from './tables/RepresentationTable'
 import EnsembleHistogram from './charts/EnsembleHistogram'
 import EnsembleBoxplot from './charts/EnsembleBoxplot'
+import EnsembleSplits from './charts/EnsembleSplits'
+import GinglesScatter from './charts/GinglesScatter'
+import EICurve from './charts/EICurve'
 
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
@@ -21,6 +25,12 @@ const CVAP_GROUP_FIELDS = {
   latino_pct: 'CVAP_HSP24',
   asian_pct: 'CVAP_ASI24',
 }
+const RIGHT_PANEL_VIEW_OPTIONS = [
+  { value: 'Map', label: 'State Summary' },
+  { value: 'Gingles', label: 'Gingles' },
+  { value: 'EI', label: 'EI' },
+  { value: 'Ensembles', label: 'Ensemble Analysis' },
+]
 
 function formatWholeNumber(value) {
   return Number.isFinite(value) ? Math.round(value).toLocaleString() : 'N/A'
@@ -428,6 +438,7 @@ function VoterDistributionSection({ features, loading }) {
 
 function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
   const activeTab = useAppStore((state) => state.activeTab)
+  const setActiveTab = useAppStore((state) => state.setActiveTab)
   const selectedDistrictId = useAppStore((state) => state.selectedDistrictId)
   const setSelectedDistrictId = useAppStore((state) => state.setSelectedDistrictId)
   const summary = stateSummary[selectedStateCode]
@@ -437,8 +448,7 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
     [precinctGeojson?.features],
   )
   const feasibleGroups = getFeasibleGroupKeys(statewideCvapSummary)
-  const canShowRepresentationPage =
-    (activeTab === 'Map' || activeTab === 'Demographics') && Boolean(selectedDistrictId)
+  const canShowRepresentationPage = Boolean(selectedDistrictId)
   const [detailsPage, setDetailsPage] = useState(0)
 
   useEffect(() => {
@@ -463,6 +473,9 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
 
   const totalPages = canShowRepresentationPage ? 2 : 1
   const effectivePage = canShowRepresentationPage ? detailsPage : 0
+  const effectiveAnalysisView = RIGHT_PANEL_VIEW_OPTIONS.some((option) => option.value === activeTab)
+    ? activeTab
+    : 'Map'
 
   return (
     <aside className="dashboard-sidebar">
@@ -489,60 +502,98 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
       )}
 
       {effectivePage === 0 && (
-        !summary ? (
-          <Card title="Summary">
-            <div className="small-text muted-text">No summary data.</div>
+        <>
+          <Card title="">
+            <Select
+              ariaLabel="Right panel content view selector"
+              value={effectiveAnalysisView}
+              onChange={setActiveTab}
+              options={RIGHT_PANEL_VIEW_OPTIONS}
+            />
           </Card>
-        ) : (
-          <>
-            <Card title="Population Overview">
-              <PopulationSummaryTable
-                cvapTotal={statewideCvapSummary?.votingAgePopulation}
-                districtCount={summary?.districts}
-                loading={loading}
-              />
-            </Card>
 
-            <Card title="Voter Distribution">
-              <VoterDistributionSection features={precinctGeojson?.features ?? []} loading={loading} />
-            </Card>
+          {effectiveAnalysisView === 'Map' && (
+            !summary ? (
+              <Card title="Summary">
+                <div className="small-text muted-text">No summary data.</div>
+              </Card>
+            ) : (
+              <>
+                <Card title="Population Overview">
+                  <PopulationSummaryTable
+                    cvapTotal={statewideCvapSummary?.votingAgePopulation}
+                    districtCount={summary?.districts}
+                    loading={loading}
+                  />
+                </Card>
 
-            <Card title="Racial Groups">
-              <RacialGroupsSection
-                summary={statewideCvapSummary}
-                feasibleGroups={feasibleGroups}
-                loading={loading}
-              />
-            </Card>
+                <Card title="Voter Distribution">
+                  <VoterDistributionSection features={precinctGeojson?.features ?? []} loading={loading} />
+                </Card>
 
-            <Card title="Redistricting Process">
-              <RedistrictingProcessTable summary={summary} />
-            </Card>
+                <Card title="Racial Groups">
+                  <RacialGroupsSection
+                    summary={statewideCvapSummary}
+                    feasibleGroups={feasibleGroups}
+                    loading={loading}
+                  />
+                </Card>
 
-            <Card title="Congressional Party">
-              <CongressionalPartySummarySection summary={summary} />
-            </Card>
+                <Card title="Redistricting Process">
+                  <RedistrictingProcessTable summary={summary} />
+                </Card>
 
-            <Card title="Ensemble Summary">
-              <EnsembleSummaryTable />
+                <Card title="Congressional Party">
+                  <CongressionalPartySummarySection summary={summary} />
+                </Card>
+
+                <Card title="Ensemble Summary">
+                  <EnsembleSummaryTable />
+                </Card>
+              </>
+            )
+          )}
+
+          {effectiveAnalysisView === 'Gingles' && (
+            <Card title="Gingles">
+              <div style={{ width: '100%', height: 380 }}>
+                <GinglesScatter stateCode={selectedStateCode} features={precinctGeojson?.features ?? []} />
+              </div>
             </Card>
-            {activeTab === 'Ensemble' && (
+          )}
+
+          {effectiveAnalysisView === 'EI' && (
+            <Card title="EI">
+              <div style={{ width: '100%', height: 520 }}>
+                <EICurve stateCode={selectedStateCode} features={precinctGeojson?.features ?? []} />
+              </div>
+            </Card>
+          )}
+
+          {effectiveAnalysisView === 'Ensembles' && (
+            <>
+              <Card title="Ensemble Summary">
+                <EnsembleSummaryTable />
+              </Card>
+              <Card title="Ensemble Split Comparison">
+                <div style={{ width: '100%', height: 260 }}>
+                  <EnsembleSplits stateCode={selectedStateCode} />
+                </div>
+              </Card>
               <Card title="Ensemble Histogram (GUI-16)">
                 <div style={{ width: '100%', height: 300 }}>
                   <EnsembleHistogram stateCode={selectedStateCode} />
                 </div>
               </Card>
-            )}
-
-            {activeTab === 'Ensemble' && (
               <Card title="Ensemble Comparison (GUI-17)">
                 <div style={{ width: '100%', height: 320 }}>
                   <EnsembleBoxplot stateCode={selectedStateCode} />
                 </div>
               </Card>
-            )}
-          </>
-        )
+            </>
+          )}
+
+        </>
       )}
 
       {effectivePage === 1 && canShowRepresentationPage && (

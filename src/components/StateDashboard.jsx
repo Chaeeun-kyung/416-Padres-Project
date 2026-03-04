@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react'
-import BottomDrawer from './BottomDrawer'
+import { useEffect, useRef, useState } from 'react'
 import LeftControls from './LeftControls'
 import MapPanel from './MapPanel'
 import RightDetails from './RightDetails'
+import { STATE_META } from '../data/stateMeta'
 import useAppStore from '../store/useAppStore'
 import Button from '../ui/components/Button'
 import Card from '../ui/components/Card'
@@ -10,17 +10,58 @@ import Card from '../ui/components/Card'
 const LEFT_PANEL_WIDTH = 280
 const RIGHT_PANEL_MIN_WIDTH = 370
 const MAP_PANEL_MIN_WIDTH = 320
+const RIGHT_PANEL_SUMMARY_WIDTH = RIGHT_PANEL_MIN_WIDTH
+const ANALYSIS_TABS = new Set(['Gingles', 'EI', 'Ensembles'])
+const ANALYSIS_RIGHT_PANEL_RATIO = 0.43
 
 function StateDashboard() {
   const selectedStateCode = useAppStore((state) => state.selectedStateCode)
+  const activeTab = useAppStore((state) => state.activeTab)
+  const selectedDistrictId = useAppStore((state) => state.selectedDistrictId)
   const resetDashboardPage = useAppStore((state) => state.resetDashboardPage)
   const resetApp = useAppStore((state) => state.resetApp)
   const [precinctGeojson, setPrecinctGeojson] = useState(null)
   const [loadingMapData, setLoadingMapData] = useState(false)
-  const [mapError, setMapError] = useState('')
+  const [, setMapError] = useState('')
   const [rightPanelWidth, setRightPanelWidth] = useState(RIGHT_PANEL_MIN_WIDTH)
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
   const gridRef = useRef(null)
+  const previousUseWidePanelRef = useRef(ANALYSIS_TABS.has(activeTab) || Boolean(selectedDistrictId))
+  const selectedStateName = STATE_META[selectedStateCode]?.name ?? 'State Dashboard'
+
+  function getRightPanelWidthBounds() {
+    if (!gridRef.current) {
+      return { minWidth: RIGHT_PANEL_MIN_WIDTH, maxWidth: RIGHT_PANEL_MIN_WIDTH, paneAvailableWidth: RIGHT_PANEL_MIN_WIDTH }
+    }
+
+    const gridRect = gridRef.current.getBoundingClientRect()
+    const gridStyle = window.getComputedStyle(gridRef.current)
+    const gridGap = Number.parseFloat(gridStyle.columnGap || gridStyle.gap || '0') || 0
+    const paneAvailableWidth = gridRect.width - LEFT_PANEL_WIDTH - (gridGap * 3) - 10
+    const maxWidth = Math.max(
+      RIGHT_PANEL_MIN_WIDTH,
+      gridRect.width - LEFT_PANEL_WIDTH - MAP_PANEL_MIN_WIDTH - (gridGap * 3) - 10,
+    )
+    return { minWidth: RIGHT_PANEL_MIN_WIDTH, maxWidth, paneAvailableWidth }
+  }
+
+  useEffect(() => {
+    const useWidePanel = ANALYSIS_TABS.has(activeTab) || Boolean(selectedDistrictId)
+    const wasWidePanel = previousUseWidePanelRef.current
+    if (useWidePanel === wasWidePanel) return
+
+    previousUseWidePanelRef.current = useWidePanel
+    const frameId = requestAnimationFrame(() => {
+      const { minWidth, maxWidth, paneAvailableWidth } = getRightPanelWidthBounds()
+      if (useWidePanel) {
+        const targetWidth = paneAvailableWidth * ANALYSIS_RIGHT_PANEL_RATIO
+        setRightPanelWidth(Math.max(minWidth, Math.min(maxWidth, targetWidth)))
+      } else {
+        setRightPanelWidth(Math.max(minWidth, Math.min(maxWidth, RIGHT_PANEL_SUMMARY_WIDTH)))
+      }
+    })
+    return () => cancelAnimationFrame(frameId)
+  }, [activeTab, selectedDistrictId])
 
   function handleSidebarResizeStart(event) {
     if (!gridRef.current) return
@@ -28,13 +69,7 @@ function StateDashboard() {
     event.preventDefault()
     const startX = event.clientX
     const startWidth = rightPanelWidth
-    const gridRect = gridRef.current.getBoundingClientRect()
-    const gridStyle = window.getComputedStyle(gridRef.current)
-    const gridGap = Number.parseFloat(gridStyle.columnGap || gridStyle.gap || '0') || 0
-    const maxWidth = Math.max(
-      RIGHT_PANEL_MIN_WIDTH,
-      gridRect.width - LEFT_PANEL_WIDTH - MAP_PANEL_MIN_WIDTH - (gridGap * 3) - 10,
-    )
+    const { minWidth, maxWidth } = getRightPanelWidthBounds()
 
     setIsResizingSidebar(true)
     document.body.style.cursor = 'col-resize'
@@ -43,7 +78,7 @@ function StateDashboard() {
     function handlePointerMove(moveEvent) {
       const delta = startX - moveEvent.clientX
       const nextWidth = startWidth + delta
-      setRightPanelWidth(Math.max(RIGHT_PANEL_MIN_WIDTH, Math.min(maxWidth, nextWidth)))
+      setRightPanelWidth(Math.max(minWidth, Math.min(maxWidth, nextWidth)))
     }
 
     function handlePointerUp() {
@@ -62,8 +97,8 @@ function StateDashboard() {
     <div className="dashboard-shell">
       <Card className="dashboard-topbar" compact>
         <div className="dashboard-topbar__row">
-          <div>
-            <h1 className="dashboard-title">CSE 416 Project Dashboard</h1>
+          <div className="dashboard-topbar__state-block">
+            <h1 className="dashboard-title">{selectedStateName}</h1>
           </div>
           <div className="dashboard-topbar__meta">
             <Button variant="secondary" onClick={resetDashboardPage}>
@@ -73,10 +108,6 @@ function StateDashboard() {
               Back to Map
             </Button>
           </div>
-        </div>
-        <div className="dashboard-method-note">
-          We use CVAP (2020-2024 ACS 5-year) as the population denominator for racial/ethnic percentages, and 2024 presidential election results as the source of
-          precinct vote totals for party vote share, consistently throughout the application.
         </div>
       </Card>
 
@@ -104,12 +135,6 @@ function StateDashboard() {
           <RightDetails selectedStateCode={selectedStateCode} precinctGeojson={precinctGeojson} loading={loadingMapData} />
         </div>
       </div>
-
-      <BottomDrawer
-        selectedStateCode={selectedStateCode}
-        precinctFeatures={precinctGeojson?.features ?? []}
-        mapError={mapError}
-      />
     </div>
   )
 }
