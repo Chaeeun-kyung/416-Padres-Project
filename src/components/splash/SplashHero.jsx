@@ -12,9 +12,9 @@ function SplashHero({ selectedStateCode, onStateSelect, disabled = false }) {
   return (
     <div className="splash-hero">
       <p className="splash-eyebrow">CSE 416 Team Padres</p>
-      <h1 className="splash-title">CSE 416 Project</h1>
-      <p className="splash-subtitle">Select a state to begin analysis.</p>
-      <p className="splash-helper">Only Arizona and Colorado are selectable now.</p>
+      <h1 className="splash-title">VRA Reduction Analysis</h1>
+      <p className="splash-subtitle">Explore how districting and the Voting Rights Act influence minority representation.</p>
+      <p className="splash-helper">Select a state to begin analysis. Only Arizona and Colorado are available.</p>
 
       <div className="panel-card splash-state-picker">
         <label className="splash-state-picker__label" htmlFor="splash-state-select">

@@ -14,6 +14,11 @@ const RIGHT_PANEL_SUMMARY_WIDTH = RIGHT_PANEL_MIN_WIDTH
 const ANALYSIS_TABS = new Set(['Gingles', 'EI', 'Ensembles'])
 const ANALYSIS_RIGHT_PANEL_RATIO = 0.5
 
+const STATE_PRECLEARANCE_LABEL = {
+  AZ: 'Preclearance State',
+  CO: 'Non-preclearance State',
+}
+
 function StateDashboard() {
   const selectedStateCode = useAppStore((state) => state.selectedStateCode)
   const activeTab = useAppStore((state) => state.activeTab)
@@ -28,6 +33,7 @@ function StateDashboard() {
   const gridRef = useRef(null)
   const previousUseWidePanelRef = useRef(ANALYSIS_TABS.has(activeTab) || Boolean(selectedDistrictId))
   const selectedStateName = STATE_META[selectedStateCode]?.name ?? 'State Dashboard'
+  const preclearanceLabel = STATE_PRECLEARANCE_LABEL[selectedStateCode] ?? ''
 
   function getRightPanelWidthBounds() {
     if (!gridRef.current) {
@@ -99,6 +105,9 @@ function StateDashboard() {
         <div className="dashboard-topbar__row">
           <div className="dashboard-topbar__state-block">
             <h1 className="dashboard-title">{selectedStateName}</h1>
+            {preclearanceLabel && (
+              <div className="small-text muted-text">{preclearanceLabel}</div>
+            )}
           </div>
           <div className="dashboard-topbar__meta">
             <Button variant="secondary" onClick={resetDashboardPage}>
