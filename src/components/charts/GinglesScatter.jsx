@@ -11,20 +11,18 @@ const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
 const DEFAULT_GROUPS = metricConfig.filter((metric) => metric.key !== 'pct_dem_lead')
 const GROUP_FIELD_CANDIDATES = {
-  white_pct: ['white_pct', 'pct_white', 'white_cvap_pct', 'white_population_pct'],
-  black_pct: ['black_pct', 'pct_black', 'black_cvap_pct', 'black_population_pct'],
-  latino_pct: ['latino_pct', 'hispanic_pct', 'pct_hispanic', 'latino_cvap_pct', 'hispanic_cvap_pct'],
-  native_american_pct: ['native_american_pct', 'native_pct', 'pct_native', 'native_cvap_pct'],
-  asian_pct: ['asian_pct', 'pct_asian', 'asian_cvap_pct'],
+  white_pct: ['PCT_CVAP_WHT', 'pct_cvap_wht'],
+  black_pct: ['PCT_CVAP_BLA', 'pct_cvap_bla'],
+  latino_pct: ['PCT_CVAP_HSP', 'pct_cvap_hsp'],
+  native_american_pct: ['PCT_CVAP_AMI', 'pct_cvap_ami'],
+  asian_pct: ['PCT_CVAP_ASI', 'pct_cvap_asi'],
 }
-
-function geoidHashToPct(geoid, fallbackIndex, salt = '') {
-  const key = `${String(geoid ?? fallbackIndex)}-${salt}`
-  let hash = 0
-  for (let i = 0; i < key.length; i += 1) {
-    hash = (hash * 31 + key.charCodeAt(i)) % 1000
-  }
-  return (hash % 101) / 100
+const GROUP_TO_CVAP_FIELD = {
+  white_pct: 'CVAP_WHT24',
+  black_pct: 'CVAP_BLA24',
+  latino_pct: 'CVAP_HSP24',
+  native_american_pct: 'CVAP_AMI24',
+  asian_pct: 'CVAP_ASI24',
 }
 
 function normalizePct(value) {
@@ -39,14 +37,18 @@ function resolveGroupPct(properties, groupKey, rowIndex) {
   for (let i = 0; i < candidates.length; i += 1) {
     const normalized = normalizePct(Number(properties[candidates[i]]))
     if (normalized !== null) {
-      return { value: normalized, isFallback: false }
+      return normalized
     }
   }
 
-  return {
-    value: geoidHashToPct(properties.GEOID, rowIndex, groupKey),
-    isFallback: true,
+  const cvapField = GROUP_TO_CVAP_FIELD[groupKey]
+  const groupCvap = Number(properties?.[cvapField])
+  const totalCvap = Number(properties?.CVAP_TOT24)
+  if (Number.isFinite(groupCvap) && Number.isFinite(totalCvap) && totalCvap > 0) {
+    return normalizePct(groupCvap / totalCvap)
   }
+
+  return null
 }
 
 function buildTrend(points, binCount = 12) {
@@ -122,6 +124,7 @@ function GinglesScatter({ stateCode, features }) {
           stateKeys,
           summary,
           Object.fromEntries(stateKeys.map((key) => [key, stateGroups[key]?.label ?? key])),
+          {},
         )
       }
       if (DEFAULT_GROUPS.length) {
@@ -136,6 +139,7 @@ function GinglesScatter({ stateCode, features }) {
           DEFAULT_GROUPS.map((group) => group.key),
           summary,
           Object.fromEntries(DEFAULT_GROUPS.map((group) => [group.key, group.label])),
+          {},
         )
       }
       return [{ value: 'minority_mock', label: 'Minority % (Mock)' }]
@@ -149,52 +153,49 @@ function GinglesScatter({ stateCode, features }) {
 
   const activeGroupLabel = groupOptions.find((group) => group.value === effectiveGroup)?.label ?? 'Selected Group %'
 
-  const { precinctPoints, fallbackCount } = useMemo(() => {
+  const precinctPoints = useMemo(() => {
     const mapped = (features ?? []).map((feature, index) => {
       const props = feature.properties ?? {}
       const totalVotes = Number(props.votes_total ?? 0)
       const demShare = totalVotes > 0 ? Number(props.votes_dem ?? 0) / totalVotes : 0
       const repShare = totalVotes > 0 ? Number(props.votes_rep ?? 0) / totalVotes : 0
-      const xResult = resolveGroupPct(props, effectiveGroup, index)
+      const x = resolveGroupPct(props, effectiveGroup, index)
+
+      if (x === null) return null
 
       return {
         geoid: props.GEOID ?? `row-${index}`,
-        x: xResult.value,
+        x,
         demShare,
         repShare,
-        isFallbackX: xResult.isFallback,
       }
     })
+      .filter(Boolean)
 
-    return {
-      precinctPoints: mapped,
-      fallbackCount: mapped.filter((row) => row.isFallbackX).length,
-    }
+    return mapped
   }, [effectiveGroup, features])
 
   const trendData = useMemo(() => buildTrend(precinctPoints), [precinctPoints])
-  const isUsingFallbackX = precinctPoints.length > 0 && fallbackCount === precinctPoints.length
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontWeight: 700 }}>Gingles Analysis (GUI-9)</div>
+          <div style={{ fontWeight: 700 }}>Gingles Analysis</div>
           <Info
             label="Gingles chart info"
             text={`X: racial/ethnic group %, Y: party vote share (Democratic blue / Republican red). Feasible: over ${FEASIBLE_THRESHOLD_MILLIONS.toFixed(1)}M CVAP.`}
           />
-          {isUsingFallbackX && (
-            <Info
-              label="Gingles data note"
-              text="Demographic percentage fields are missing in current precinct GeoJSON, so the x-axis uses deterministic mock values by GEOID."
-            />
-          )}
         </div>
         <div style={{ width: 190 }}>
           <Select ariaLabel="Gingles group selector" value={effectiveGroup} onChange={setSelectedGroup} options={groupOptions} />
         </div>
       </div>
+      {precinctPoints.length === 0 ? (
+        <div className="small-text muted-text">
+          No precinct rows have both vote totals and demographic percentage data for this group.
+        </div>
+      ) : (
       <ResponsiveContainer width="100%" height="90%">
         <ComposedChart margin={{ top: 8, right: 20, bottom: 20, left: 8 }}>
           <CartesianGrid stroke="#e7e9ee" strokeDasharray="3 3" />
@@ -250,6 +251,7 @@ function GinglesScatter({ stateCode, features }) {
           />
         </ComposedChart>
       </ResponsiveContainer>
+      )}
     </div>
   )
 }

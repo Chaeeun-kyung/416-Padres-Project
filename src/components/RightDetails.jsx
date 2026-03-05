@@ -6,14 +6,13 @@ import stateSummary from '../data/mock/stateSummary.json'
 import useAppStore from '../store/useAppStore'
 import Button from '../ui/components/Button'
 import Card from '../ui/components/Card'
-import Select from '../ui/components/Select'
+import SegmentedControl from '../ui/components/SegmentedControl'
 import ToggleSwitch from '../ui/components/ToggleSwitch'
 import RepresentationTable from './tables/RepresentationTable'
-import EnsembleHistogram from './charts/EnsembleHistogram'
-import EnsembleBoxplot from './charts/EnsembleBoxplot'
 import EnsembleSplits from './charts/EnsembleSplits'
 import GinglesScatter from './charts/GinglesScatter'
 import EICurve from './charts/EICurve'
+import DistrictBoxplot from './charts/DistrictBoxplot'
 
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
@@ -30,6 +29,10 @@ const RIGHT_PANEL_VIEW_OPTIONS = [
   { value: 'Gingles', label: 'Gingles' },
   { value: 'EI', label: 'EI' },
   { value: 'Ensembles', label: 'Ensemble Analysis' },
+]
+const ENSEMBLE_VIEW_OPTIONS = [
+  { value: 'splits', label: 'Split Bars' },
+  { value: 'boxplot', label: 'Box & Whisker' },
 ]
 
 function formatWholeNumber(value) {
@@ -450,6 +453,7 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
   const feasibleGroups = getFeasibleGroupKeys(statewideCvapSummary)
   const canShowRepresentationPage = Boolean(selectedDistrictId)
   const [detailsPage, setDetailsPage] = useState(0)
+  const [ensembleView, setEnsembleView] = useState('splits')
 
   useEffect(() => {
     if (!canShowRepresentationPage) {
@@ -498,13 +502,24 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
               Next
             </Button>
           </div>
+          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSelectedDistrictId(null)
+                setDetailsPage(0)
+              }}
+            >
+              Clear District Selection
+            </Button>
+          </div>
         </Card>
       )}
 
       {effectivePage === 0 && (
         <>
           <Card title="">
-            <Select
+            <SegmentedControl
               ariaLabel="Right panel content view selector"
               value={effectiveAnalysisView}
               onChange={setActiveTab}
@@ -555,42 +570,39 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
           )}
 
           {effectiveAnalysisView === 'Gingles' && (
-            <Card title="Gingles">
-              <div style={{ width: '100%', height: 380 }}>
+            <Card title="Gingles Analysis">
+              <div style={{ width: '100%', height: 'min(72vh, 700px)' }}>
                 <GinglesScatter stateCode={selectedStateCode} features={precinctGeojson?.features ?? []} />
               </div>
             </Card>
           )}
 
           {effectiveAnalysisView === 'EI' && (
-            <Card title="EI">
-              <div style={{ width: '100%', height: 520 }}>
+            <Card title="Ecological Inference">
+              <div style={{ width: '100%', height: 'min(72vh, 700px)' }}>
                 <EICurve stateCode={selectedStateCode} features={precinctGeojson?.features ?? []} />
               </div>
             </Card>
           )}
 
           {effectiveAnalysisView === 'Ensembles' && (
-            <>
-              <Card title="Ensemble Summary">
-                <EnsembleSummaryTable />
-              </Card>
-              <Card title="Ensemble Split Comparison">
-                <div style={{ width: '100%', height: 260 }}>
-                  <EnsembleSplits stateCode={selectedStateCode} />
+            <Card title="Ensemble Analysis">
+              <div style={{ width: '100%', height: 'min(72vh, 700px)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ width: 360, maxWidth: '100%' }}>
+                  <SegmentedControl
+                    ariaLabel="Ensemble chart selector"
+                    value={ensembleView}
+                    onChange={setEnsembleView}
+                    options={ENSEMBLE_VIEW_OPTIONS}
+                  />
                 </div>
-              </Card>
-              <Card title="Ensemble Histogram (GUI-16)">
-                <div style={{ width: '100%', height: 300 }}>
-                  <EnsembleHistogram stateCode={selectedStateCode} />
+                <div style={{ flex: 1, minHeight: 0 }}>
+                  {ensembleView === 'boxplot'
+                    ? <DistrictBoxplot stateCode={selectedStateCode} />
+                    : <EnsembleSplits stateCode={selectedStateCode} />}
                 </div>
-              </Card>
-              <Card title="Ensemble Comparison (GUI-17)">
-                <div style={{ width: '100%', height: 320 }}>
-                  <EnsembleBoxplot stateCode={selectedStateCode} />
-                </div>
-              </Card>
-            </>
+              </div>
+            </Card>
           )}
 
         </>
@@ -598,6 +610,17 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
 
       {effectivePage === 1 && canShowRepresentationPage && (
         <Card title="Congressional Representation">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setSelectedDistrictId(null)
+                setDetailsPage(0)
+              }}
+            >
+              Exit District Details
+            </Button>
+          </div>
           <RepresentationTable
             rows={repRows}
             selectedDistrictId={selectedDistrictId}

@@ -38,10 +38,10 @@ function DistrictBoxplot({ stateCode }) {
       RACIAL_GROUPS.map((group) => group.key),
       summary,
       {},
-      { includeOnlyFeasible: true },
+      { includeOnlyFeasible: true, includeOnlyMinorities: true },
     )
     if (feasibleOnly.length) return feasibleOnly
-    return buildGroupOptions(RACIAL_GROUPS.map((group) => group.key), summary)
+    return buildGroupOptions(RACIAL_GROUPS.map((group) => group.key), summary, {}, { includeOnlyMinorities: true })
   })()
   const [selectedGroup, setSelectedGroup] = useState(groupOptions[0]?.value ?? 'black_pct')
   const [selectedEnsemble, setSelectedEnsemble] = useState(ENSEMBLE_OPTIONS[0].value)
