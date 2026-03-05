@@ -1,29 +1,25 @@
-import { useMemo, useState } from 'react'
-import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis } from 'recharts'
-import { buildGroupOptions, FEASIBLE_THRESHOLD_MILLIONS } from '../../data/racialGroupConfig'
-import stateSummary from '../../data/mock/stateSummary.json'
-import metricConfig from '../../data/mock/metricConfig.json'
-import eiCurves from '../../data/mock/eiCurves.json'
+import { useEffect, useMemo, useState } from 'react'
+import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis, ZAxis } from 'recharts'
 import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
 
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
-const DEFAULT_GROUPS = metricConfig.filter((metric) => metric.key !== 'pct_dem_lead')
-const GROUP_FIELD_CANDIDATES = {
-  white_pct: ['PCT_CVAP_WHT', 'pct_cvap_wht'],
-  black_pct: ['PCT_CVAP_BLA', 'pct_cvap_bla'],
-  latino_pct: ['PCT_CVAP_HSP', 'pct_cvap_hsp'],
-  native_american_pct: ['PCT_CVAP_AMI', 'pct_cvap_ami'],
-  asian_pct: ['PCT_CVAP_ASI', 'pct_cvap_asi'],
+const DATA_URL = '/data/gingles_points.json'
+const MAX_RENDERED_PRECINCTS = 900
+const SAMPLE_BIN_COUNT = 28
+
+const GROUP_OPTIONS = [
+  { value: 'latino_pct', label: 'Latino (Feasible >0.4M)' },
+  { value: 'white_pct', label: 'White (Feasible >0.4M)' },
+]
+const GROUP_DISPLAY_LABEL = {
+  latino_pct: 'Latino',
+  white_pct: 'White',
 }
-const GROUP_TO_CVAP_FIELD = {
-  white_pct: 'CVAP_WHT24',
-  black_pct: 'CVAP_BLA24',
-  latino_pct: 'CVAP_HSP24',
-  native_american_pct: 'CVAP_AMI24',
-  asian_pct: 'CVAP_ASI24',
-}
+
+let cachedRows = null
+let loadingPromise = null
 
 function normalizePct(value) {
   if (!Number.isFinite(value)) return null
@@ -32,61 +28,227 @@ function normalizePct(value) {
   return null
 }
 
-function resolveGroupPct(properties, groupKey, rowIndex) {
-  const candidates = GROUP_FIELD_CANDIDATES[groupKey] ?? [groupKey]
-  for (let i = 0; i < candidates.length; i += 1) {
-    const normalized = normalizePct(Number(properties[candidates[i]]))
-    if (normalized !== null) {
-      return normalized
+function parsePoint(row) {
+  const demShare = normalizePct(Number(row?.dem_share))
+  const repShare = normalizePct(Number(row?.rep_share))
+  const latinoPct = normalizePct(Number(row?.latino_pct))
+  const whitePct = normalizePct(Number(row?.white_pct))
+  if (demShare === null || repShare === null || latinoPct === null || whitePct === null) return null
+
+  const pidRaw = row?.pid ?? row?.GEOID
+  const pid = String(pidRaw ?? '').trim()
+  if (!pid) return null
+
+  const stateRaw = row?.state
+  const state = typeof stateRaw === 'string' && stateRaw.trim().length === 2
+    ? stateRaw.trim().toUpperCase()
+    : null
+
+  return {
+    pid,
+    state,
+    dem_share: demShare,
+    rep_share: repShare,
+    latino_pct: latinoPct,
+    white_pct: whitePct,
+  }
+}
+
+async function loadRows() {
+  if (cachedRows) return cachedRows
+  if (!loadingPromise) {
+    loadingPromise = fetch(DATA_URL, { cache: 'force-cache' })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load ${DATA_URL} (${response.status})`)
+        }
+        return response.json()
+      })
+      .then((payload) => {
+        if (!Array.isArray(payload)) {
+          throw new Error('Invalid gingles_points.json format (expected array).')
+        }
+        const normalized = payload.map(parsePoint).filter(Boolean)
+        cachedRows = normalized
+        return normalized
+      })
+      .finally(() => {
+        loadingPromise = null
+      })
+  }
+  return loadingPromise
+}
+
+function formatPct(value) {
+  return Number.isFinite(value) ? `${value.toFixed(1)}%` : 'N/A'
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value))
+}
+
+function solveLinearSystem(matrix, vector) {
+  const n = vector.length
+  const aug = matrix.map((row, rowIndex) => [...row, vector[rowIndex]])
+
+  for (let pivot = 0; pivot < n; pivot += 1) {
+    let maxRow = pivot
+    let maxAbs = Math.abs(aug[pivot][pivot] ?? 0)
+    for (let row = pivot + 1; row < n; row += 1) {
+      const absValue = Math.abs(aug[row][pivot] ?? 0)
+      if (absValue > maxAbs) {
+        maxAbs = absValue
+        maxRow = row
+      }
+    }
+    if (maxAbs <= 1e-12) return null
+    if (maxRow !== pivot) {
+      const temp = aug[pivot]
+      aug[pivot] = aug[maxRow]
+      aug[maxRow] = temp
+    }
+
+    const pivotValue = aug[pivot][pivot]
+    for (let col = pivot; col <= n; col += 1) {
+      aug[pivot][col] /= pivotValue
+    }
+
+    for (let row = 0; row < n; row += 1) {
+      if (row === pivot) continue
+      const factor = aug[row][pivot]
+      for (let col = pivot; col <= n; col += 1) {
+        aug[row][col] -= factor * aug[pivot][col]
+      }
     }
   }
 
-  const cvapField = GROUP_TO_CVAP_FIELD[groupKey]
-  const groupCvap = Number(properties?.[cvapField])
-  const totalCvap = Number(properties?.CVAP_TOT24)
-  if (Number.isFinite(groupCvap) && Number.isFinite(totalCvap) && totalCvap > 0) {
-    return normalizePct(groupCvap / totalCvap)
-  }
-
-  return null
+  return aug.map((row) => row[n])
 }
 
-function buildTrend(points, binCount = 12) {
-  const bins = Array.from({ length: binCount }, () => ({
-    count: 0,
-    demSum: 0,
-    repSum: 0,
-  }))
+function fitPolynomial(points, valueKey, degree = 3) {
+  const cleanPoints = points.filter((point) => (
+    Number.isFinite(point?.x) && Number.isFinite(point?.[valueKey])
+  ))
+  if (cleanPoints.length < degree + 1) return null
 
-  points.forEach((point) => {
-    const index = Math.max(0, Math.min(binCount - 1, Math.floor(point.x * binCount)))
-    const target = bins[index]
-    target.count += 1
-    target.demSum += point.demShare
-    target.repSum += point.repShare
+  const size = degree + 1
+  const matrix = Array.from({ length: size }, () => Array(size).fill(0))
+  const vector = Array(size).fill(0)
+
+  cleanPoints.forEach((point) => {
+    const x = point.x
+    const y = point[valueKey]
+    const powers = Array(size * 2).fill(1)
+    for (let i = 1; i < powers.length; i += 1) {
+      powers[i] = powers[i - 1] * x
+    }
+
+    for (let row = 0; row < size; row += 1) {
+      for (let col = 0; col < size; col += 1) {
+        matrix[row][col] += powers[row + col]
+      }
+      vector[row] += y * powers[row]
+    }
   })
 
-  return bins.map((bin, index) => ({
-    x: (index + 0.5) / binCount,
-    demTrend: bin.count ? bin.demSum / bin.count : null,
-    repTrend: bin.count ? bin.repSum / bin.count : null,
-  }))
+  return solveLinearSystem(matrix, vector)
+}
+
+function evaluatePolynomial(coeffs, x) {
+  if (!Array.isArray(coeffs) || !coeffs.length) return null
+  let result = 0
+  let power = 1
+  for (let i = 0; i < coeffs.length; i += 1) {
+    result += coeffs[i] * power
+    power *= x
+  }
+  return result
+}
+
+function pickEvenly(items, count) {
+  if (count <= 0 || !items.length) return []
+  if (count >= items.length) return [...items]
+
+  const picked = []
+  const stride = items.length / count
+  let cursor = 0
+  for (let i = 0; i < count; i += 1) {
+    const index = Math.min(items.length - 1, Math.floor(cursor))
+    picked.push(items[index])
+    cursor += stride
+  }
+  return picked
+}
+
+function sampleRowsForRender(rows, groupKey, maxRows = MAX_RENDERED_PRECINCTS, binCount = SAMPLE_BIN_COUNT) {
+  if (!Array.isArray(rows) || rows.length <= maxRows) return rows ?? []
+
+  const bins = Array.from({ length: binCount }, () => [])
+  rows.forEach((row) => {
+    const x = Number(row?.[groupKey])
+    if (!Number.isFinite(x)) return
+    const binIndex = Math.max(0, Math.min(binCount - 1, Math.floor(x * binCount)))
+    bins[binIndex].push(row)
+  })
+
+  const nonEmptyBins = bins.filter((bin) => bin.length > 0)
+  if (!nonEmptyBins.length) return rows.slice(0, maxRows)
+
+  const sampled = []
+  const baseQuota = Math.max(1, Math.floor(maxRows / nonEmptyBins.length))
+  let remaining = maxRows
+  const leftovers = []
+
+  nonEmptyBins.forEach((bin) => {
+    const take = Math.min(bin.length, baseQuota)
+    const chosen = pickEvenly(bin, take)
+    sampled.push(...chosen)
+    remaining -= chosen.length
+    if (bin.length > take) {
+      const rest = bin.filter((item) => !chosen.includes(item))
+      leftovers.push(...rest)
+    }
+  })
+
+  if (remaining > 0 && leftovers.length) {
+    sampled.push(...pickEvenly(leftovers, Math.min(remaining, leftovers.length)))
+  }
+
+  return sampled.slice(0, maxRows)
+}
+
+function buildTrendRows(stateRows, groupKey, degree = 3, pointCount = 90) {
+  const points = stateRows
+    .map((row) => ({
+      x: Number(row?.[groupKey]),
+      dem: Number(row?.dem_share),
+      rep: Number(row?.rep_share),
+    }))
+    .filter((row) => Number.isFinite(row.x) && Number.isFinite(row.dem) && Number.isFinite(row.rep))
+
+  if (points.length < degree + 1) return []
+
+  const demCoeffs = fitPolynomial(points, 'dem', degree)
+  const repCoeffs = fitPolynomial(points, 'rep', degree)
+  if (!demCoeffs || !repCoeffs) return []
+
+  return Array.from({ length: pointCount }, (_, index) => {
+    const x = index / (pointCount - 1)
+    const demTrend = evaluatePolynomial(demCoeffs, x)
+    const repTrend = evaluatePolynomial(repCoeffs, x)
+    return {
+      x: x * 100,
+      demTrendPct: clamp01(Number(demTrend)) * 100,
+      repTrendPct: clamp01(Number(repTrend)) * 100,
+    }
+  })
 }
 
 function TooltipCard({ active, payload, groupLabel }) {
-  if (!active || !payload?.length) return null
-  const row = payload.find((item) => item?.payload)?.payload
+  if (active === false || !payload?.length) return null
+  const rowCandidate = payload.find((item) => item?.payload)?.payload ?? payload[0]?.payload
+  const row = rowCandidate?.payload ?? rowCandidate
   if (!row) return null
-
-  const hasPrecinct = typeof row.geoid === 'string'
-  const demEntry = payload.find((item) => item?.dataKey === 'demShare' || item?.dataKey === 'demTrend')
-  const repEntry = payload.find((item) => item?.dataKey === 'repShare' || item?.dataKey === 'repTrend')
-  const demValue = Number(demEntry?.value)
-  const repValue = Number(repEntry?.value)
-  const xValue = Number(row.x)
-
-  const pctText = (value) => (Number.isFinite(value) ? `${Math.round(value * 100)}%` : 'N/A')
-  const title = hasPrecinct ? row.geoid : `Trend bin (${pctText(xValue)})`
 
   return (
     <div
@@ -98,84 +260,91 @@ function TooltipCard({ active, payload, groupLabel }) {
         boxShadow: '0 4px 14px rgba(17, 24, 39, 0.08)',
       }}
     >
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>{title}</div>
-      <div className="small-text muted-text">{groupLabel}: {pctText(xValue)}</div>
-      <div className="small-text" style={{ color: DEM_COLOR }}>Democratic vote share: {pctText(demValue)}</div>
-      <div className="small-text" style={{ color: REP_COLOR }}>Republican vote share: {pctText(repValue)}</div>
+      <div style={{ fontWeight: 700, marginBottom: 4 }}>{row.pid ? `PID: ${row.pid}` : 'Trend point'}</div>
+      <div className="small-text muted-text">{groupLabel}: {formatPct(Number(row.x))}</div>
+      {Number.isFinite(Number(row.demSharePct)) && (
+        <div className="small-text" style={{ color: DEM_COLOR }}>Democratic vote share: {formatPct(row.demSharePct)}</div>
+      )}
+      {Number.isFinite(Number(row.repSharePct)) && (
+        <div className="small-text" style={{ color: REP_COLOR }}>Republican vote share: {formatPct(row.repSharePct)}</div>
+      )}
+      {Number.isFinite(Number(row.demTrendPct)) && (
+        <div className="small-text" style={{ color: DEM_COLOR }}>Democratic trend: {formatPct(row.demTrendPct)}</div>
+      )}
+      {Number.isFinite(Number(row.repTrendPct)) && (
+        <div className="small-text" style={{ color: REP_COLOR }}>Republican trend: {formatPct(row.repTrendPct)}</div>
+      )}
     </div>
   )
 }
 
-function GinglesScatter({ stateCode, features }) {
-  const summary = stateSummary?.[stateCode]
-  const groupOptions = useMemo(
-    () => {
-      const stateGroups = eiCurves?.[stateCode]?.groups ?? {}
-      const stateKeys = Object.keys(stateGroups)
-      if (stateKeys.length) {
-        const feasibleOnly = buildGroupOptions(
-          stateKeys,
-          summary,
-          Object.fromEntries(stateKeys.map((key) => [key, stateGroups[key]?.label ?? key])),
-          { includeOnlyFeasible: true },
-        )
-        if (feasibleOnly.length) return feasibleOnly
-        return buildGroupOptions(
-          stateKeys,
-          summary,
-          Object.fromEntries(stateKeys.map((key) => [key, stateGroups[key]?.label ?? key])),
-          {},
-        )
-      }
-      if (DEFAULT_GROUPS.length) {
-        const feasibleOnly = buildGroupOptions(
-          DEFAULT_GROUPS.map((group) => group.key),
-          summary,
-          Object.fromEntries(DEFAULT_GROUPS.map((group) => [group.key, group.label])),
-          { includeOnlyFeasible: true },
-        )
-        if (feasibleOnly.length) return feasibleOnly
-        return buildGroupOptions(
-          DEFAULT_GROUPS.map((group) => group.key),
-          summary,
-          Object.fromEntries(DEFAULT_GROUPS.map((group) => [group.key, group.label])),
-          {},
-        )
-      }
-      return [{ value: 'minority_mock', label: 'Minority % (Mock)' }]
-    },
-    [stateCode, summary],
-  )
-  const [selectedGroup, setSelectedGroup] = useState(groupOptions[0]?.value ?? 'minority_mock')
-  const effectiveGroup = groupOptions.some((option) => option.value === selectedGroup)
+function HitCircle(props) {
+  const { cx, cy } = props ?? {}
+  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null
+  return <circle cx={cx} cy={cy} r={8} fill="rgba(0,0,0,0)" />
+}
+
+function GinglesScatter({ stateCode }) {
+  const [selectedGroup, setSelectedGroup] = useState('latino_pct')
+  const [rows, setRows] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  const effectiveGroup = GROUP_OPTIONS.some((option) => option.value === selectedGroup)
     ? selectedGroup
-    : (groupOptions[0]?.value ?? 'minority_mock')
+    : GROUP_OPTIONS[0].value
 
-  const activeGroupLabel = groupOptions.find((group) => group.value === effectiveGroup)?.label ?? 'Selected Group %'
+  const activeGroupLabel = GROUP_DISPLAY_LABEL[effectiveGroup] ?? 'Selected Group'
 
-  const precinctPoints = useMemo(() => {
-    const mapped = (features ?? []).map((feature, index) => {
-      const props = feature.properties ?? {}
-      const totalVotes = Number(props.votes_total ?? 0)
-      const demShare = totalVotes > 0 ? Number(props.votes_dem ?? 0) / totalVotes : 0
-      const repShare = totalVotes > 0 ? Number(props.votes_rep ?? 0) / totalVotes : 0
-      const x = resolveGroupPct(props, effectiveGroup, index)
+  useEffect(() => {
+    let cancelled = false
 
-      if (x === null) return null
+    loadRows()
+      .then((loadedRows) => {
+        if (!cancelled) setRows(loadedRows)
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setRows([])
+          setError(err instanceof Error ? err.message : 'Failed to load Gingles data.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
 
-      return {
-        geoid: props.GEOID ?? `row-${index}`,
-        x,
-        demShare,
-        repShare,
-      }
-    })
-      .filter(Boolean)
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
-    return mapped
-  }, [effectiveGroup, features])
+  const stateRows = useMemo(() => {
+    if (!rows.length) return []
+    const normalizedState = String(stateCode ?? '').trim().toUpperCase()
+    if (!normalizedState) return rows
 
-  const trendData = useMemo(() => buildTrend(precinctPoints), [precinctPoints])
+    const hasStateTag = rows.some((row) => typeof row.state === 'string' && row.state.length === 2)
+    if (!hasStateTag) return rows
+
+    return rows.filter((row) => row.state === normalizedState)
+  }, [rows, stateCode])
+
+  const renderRows = useMemo(
+    () => sampleRowsForRender(stateRows, effectiveGroup),
+    [effectiveGroup, stateRows],
+  )
+
+  const chartRows = useMemo(() => renderRows.map((row) => ({
+    pid: row.pid,
+    x: row[effectiveGroup] * 100,
+    demSharePct: row.dem_share * 100,
+    repSharePct: row.rep_share * 100,
+  })), [effectiveGroup, renderRows])
+
+  const trendRows = useMemo(
+    () => buildTrendRows(stateRows, effectiveGroup),
+    [effectiveGroup, stateRows],
+  )
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
@@ -184,73 +353,120 @@ function GinglesScatter({ stateCode, features }) {
           <div style={{ fontWeight: 700 }}>Gingles Analysis</div>
           <Info
             label="Gingles chart info"
-            text={`X: racial/ethnic group %, Y: party vote share (Democratic blue / Republican red). Feasible: over ${FEASIBLE_THRESHOLD_MILLIONS.toFixed(1)}M CVAP.`}
+            text={(
+              <>
+                Each point represents a precinct.
+                <br />
+                The x-axis shows the percentage of a selected racial group in the precinct, and the y-axis shows the vote share for each party.
+                <br />
+                This chart helps identify patterns of racially polarized voting.
+              </>
+            )}
           />
         </div>
         <div style={{ width: 190 }}>
-          <Select ariaLabel="Gingles group selector" value={effectiveGroup} onChange={setSelectedGroup} options={groupOptions} />
+          <Select ariaLabel="Gingles group selector" value={effectiveGroup} onChange={setSelectedGroup} options={GROUP_OPTIONS} />
         </div>
       </div>
-      {precinctPoints.length === 0 ? (
-        <div className="small-text muted-text">
-          No precinct rows have both vote totals and demographic percentage data for this group.
-        </div>
-      ) : (
-      <ResponsiveContainer width="100%" height="90%">
-        <ComposedChart margin={{ top: 8, right: 20, bottom: 20, left: 8 }}>
-          <CartesianGrid stroke="#e7e9ee" strokeDasharray="3 3" />
-          <XAxis
-            type="number"
-            dataKey="x"
-            name={activeGroupLabel}
-            domain={[0, 1]}
-            tickFormatter={(value) => `${Math.round(value * 100)}%`}
-          />
-          <YAxis
-            type="number"
-            domain={[0, 1]}
-            tickFormatter={(value) => `${Math.round(value * 100)}%`}
-          />
-          <Tooltip content={<TooltipCard groupLabel={activeGroupLabel} />} />
-          <Legend />
-          <Scatter
-            name="Democratic vote share"
-            data={precinctPoints}
-            dataKey="demShare"
-            fill={DEM_COLOR}
-            fillOpacity={0.24}
-            stroke="none"
-          />
-          <Scatter
-            name="Republican vote share"
-            data={precinctPoints}
-            dataKey="repShare"
-            fill={REP_COLOR}
-            fillOpacity={0.22}
-            stroke="none"
-          />
-          <Line
-            name="Democratic trend"
-            data={trendData}
-            type="monotone"
-            dataKey="demTrend"
-            stroke={DEM_COLOR}
-            strokeWidth={2.3}
-            dot={false}
-            connectNulls
-          />
-          <Line
-            name="Republican trend"
-            data={trendData}
-            type="monotone"
-            dataKey="repTrend"
-            stroke={REP_COLOR}
-            strokeWidth={2.3}
-            dot={false}
-            connectNulls
-          />
-        </ComposedChart>
-      </ResponsiveContainer>
+
+      {loading && (
+        <div className="small-text muted-text">Loading Gingles points...</div>
+      )}
+
+      {!loading && error && (
+        <div className="small-text muted-text">Failed to load Gingles data: {error}</div>
+      )}
+
+      {!loading && !error && chartRows.length === 0 && (
+        <div className="small-text muted-text">No Gingles points available for {stateCode}.</div>
+      )}
+
+      {!loading && !error && chartRows.length > 0 && (
+        <ResponsiveContainer width="100%" height="88%">
+          <ComposedChart margin={{ top: 8, right: 20, bottom: 20, left: 8 }} data={chartRows}>
+            <CartesianGrid stroke="#e7e9ee" strokeDasharray="3 3" />
+            <XAxis
+              type="number"
+              dataKey="x"
+              name={activeGroupLabel}
+              domain={[0, 100]}
+              tickFormatter={(value) => `${value}%`}
+              label={{ value: `${activeGroupLabel} (CVAP %)`, position: 'insideBottom', dy: 10 }}
+            />
+            <YAxis
+              type="number"
+              domain={[0, 100]}
+              tickFormatter={(value) => `${value}%`}
+              label={{ value: 'Vote share (%)', angle: -90, position: 'insideLeft' }}
+            />
+            <ZAxis zAxisId={0} type="number" range={[20, 20]} />
+            <Tooltip
+              shared={false}
+              content={<TooltipCard groupLabel={activeGroupLabel} />}
+              allowEscapeViewBox={{ x: true, y: true }}
+              wrapperStyle={{ zIndex: 20 }}
+            />
+            <Legend wrapperStyle={{ bottom: 1 }} />
+            <Scatter
+              name="Democratic vote share"
+              data={chartRows}
+              dataKey="demSharePct"
+              fill={DEM_COLOR}
+              fillOpacity={0.28}
+              stroke="none"
+              isAnimationActive={false}
+            />
+            <Scatter
+              legendType="none"
+              data={chartRows}
+              dataKey="demSharePct"
+              fill="rgba(0,0,0,0)"
+              stroke="none"
+              shape={HitCircle}
+              isAnimationActive={false}
+            />
+            <Scatter
+              name="Republican vote share"
+              data={chartRows}
+              dataKey="repSharePct"
+              fill={REP_COLOR}
+              fillOpacity={0.26}
+              stroke="none"
+              isAnimationActive={false}
+            />
+            <Scatter
+              legendType="none"
+              data={chartRows}
+              dataKey="repSharePct"
+              fill="rgba(0,0,0,0)"
+              stroke="none"
+              shape={HitCircle}
+              isAnimationActive={false}
+            />
+            <Line
+              name="Democratic trend"
+              data={trendRows}
+              type="monotone"
+              dataKey="demTrendPct"
+              stroke={DEM_COLOR}
+              strokeWidth={2.2}
+              dot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+            <Line
+              name="Republican trend"
+              data={trendRows}
+              type="monotone"
+              dataKey="repTrendPct"
+              stroke={REP_COLOR}
+              strokeWidth={2.2}
+              dot={false}
+              connectNulls
+              isAnimationActive={false}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
       )}
     </div>
   )

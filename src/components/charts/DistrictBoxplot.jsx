@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import Plot from 'react-plotly.js'
 import districtBoxplot from '../../data/mock/districtBoxplot.json'
-import { buildGroupOptions, FEASIBLE_THRESHOLD_MILLIONS, RACIAL_GROUPS } from '../../data/racialGroupConfig'
+import { buildGroupOptions, RACIAL_GROUPS } from '../../data/racialGroupConfig'
 import stateSummary from '../../data/mock/stateSummary.json'
+import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
 
 const ENSEMBLE_OPTIONS = [
@@ -27,6 +28,13 @@ function clamp01(value) {
   return Math.max(0, Math.min(1, value))
 }
 
+function findLatinoOption(options) {
+  return (options ?? []).find((option) => (
+    /latino|hisp/i.test(String(option?.value ?? ''))
+    || /latino|hispanic/i.test(String(option?.label ?? ''))
+  ))
+}
+
 function DistrictBoxplot({ stateCode }) {
   const stateData = districtBoxplot?.[stateCode]
   const summary = stateSummary?.[stateCode]
@@ -43,11 +51,12 @@ function DistrictBoxplot({ stateCode }) {
     if (feasibleOnly.length) return feasibleOnly
     return buildGroupOptions(RACIAL_GROUPS.map((group) => group.key), summary, {}, { includeOnlyMinorities: true })
   })()
-  const [selectedGroup, setSelectedGroup] = useState(groupOptions[0]?.value ?? 'black_pct')
+  const defaultGroupValue = findLatinoOption(groupOptions)?.value ?? groupOptions[0]?.value ?? 'black_pct'
+  const [selectedGroup, setSelectedGroup] = useState(defaultGroupValue)
   const [selectedEnsemble, setSelectedEnsemble] = useState(ENSEMBLE_OPTIONS[0].value)
   const effectiveGroup = groupOptions.some((option) => option.value === selectedGroup)
     ? selectedGroup
-    : (groupOptions[0]?.value ?? 'black_pct')
+    : defaultGroupValue
 
   if (!districtIds.length) {
     return <div className="small-text muted-text">No district distribution data available.</div>
@@ -95,11 +104,18 @@ function DistrictBoxplot({ stateCode }) {
   return (
     <div style={{ width: '100%', height: '100%' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
-        <div>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>District Boxplot</div>
-          <div className="small-text muted-text">
-            Districts are sorted by enacted minority share for the selected group. Feasible: over {FEASIBLE_THRESHOLD_MILLIONS.toFixed(1)}M CVAP.
-          </div>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontWeight: 700, marginBottom: 0 }}>District Boxplot</div>
+          <Info
+            label="Boxplot info"
+            text={(
+            <>
+            This chart shows how minority population is typically distributed across districts in the ensemble.
+            <br />
+            Each box shows the typical range for a district rank, and the dots indicate the enacted plan's district values for comparison.
+            </>
+            )}
+          />
         </div>
         <div style={{ display: 'flex', gap: 8, minWidth: 330 }}>
           <Select
@@ -120,9 +136,18 @@ function DistrictBoxplot({ stateCode }) {
         data={[...boxTraces, enactedTrace]}
         layout={{
           autosize: true,
-          margin: { l: 40, r: 10, t: 10, b: 34 },
+          margin: { l: 58, r: 10, t: 10, b: 52 },
           showlegend: true,
-          yaxis: { range: [0, 1], tickformat: '.0%' },
+          xaxis: {
+            title: { text: 'District (sorted by enacted minority share)' },
+            automargin: true,
+          },
+          yaxis: {
+            range: [0, 1],
+            tickformat: '.0%',
+            title: { text: 'Minority share (%)' },
+            automargin: true,
+          },
           paper_bgcolor: 'white',
           plot_bgcolor: 'white',
         }}

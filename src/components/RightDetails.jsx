@@ -502,17 +502,6 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
               Next
             </Button>
           </div>
-          <div style={{ marginTop: 8, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setSelectedDistrictId(null)
-                setDetailsPage(0)
-              }}
-            >
-              Clear District Selection
-            </Button>
-          </div>
         </Card>
       )}
 
@@ -570,7 +559,7 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
           )}
 
           {effectiveAnalysisView === 'Gingles' && (
-            <Card title="Gingles Analysis">
+            <Card title="">
               <div style={{ width: '100%', height: 'min(72vh, 700px)' }}>
                 <GinglesScatter stateCode={selectedStateCode} features={precinctGeojson?.features ?? []} />
               </div>
@@ -578,7 +567,7 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
           )}
 
           {effectiveAnalysisView === 'EI' && (
-            <Card title="Ecological Inference">
+            <Card title="">
               <div style={{ width: '100%', height: 'min(72vh, 700px)' }}>
                 <EICurve stateCode={selectedStateCode} features={precinctGeojson?.features ?? []} />
               </div>
