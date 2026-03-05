@@ -432,7 +432,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     const geoid = String(feature?.properties?.GEOID ?? '')
     const metricValue = metricLookup.byGeoId.get(geoid)
     return {
-      color: hasMetricSelection ? '#8A6A00' : 'transparent',
+      color: hasMetricSelection ? '#475569' : 'transparent',
       weight: hasMetricSelection ? 0.22 : 0,
       opacity: hasMetricSelection ? 0.45 : 1,
       fillColor: hasMetricSelection ? getColorForValue(metricValue, binResult?.bins ?? [], binResult?.colors ?? []) : '#cbd5e1',
@@ -460,7 +460,8 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     layer.bindTooltip(`GEOID: ${props.GEOID ?? 'N/A'} | Dem: ${props.votes_dem ?? 0} | Rep: ${props.votes_rep ?? 0} | Total: ${props.votes_total ?? 0}${metricSegment}`)
     layer.on({
       click: (event) => {
-        setSelectedDistrictId(findDistrictIdForLatLng(event?.latlng))
+        const districtId = findDistrictIdForLatLng(event?.latlng)
+        setSelectedDistrictId(districtId && districtId === selectedDistrictId ? null : districtId)
       },
     })
   }
@@ -504,7 +505,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
       layer.bindTooltip(`District ${districtId}`, { sticky: true })
       layer.on({
         click: () => {
-          setSelectedDistrictId(districtId)
+          setSelectedDistrictId(districtId === selectedDistrictId ? null : districtId)
         },
       })
     } else {

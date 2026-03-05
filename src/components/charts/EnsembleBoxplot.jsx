@@ -67,7 +67,7 @@ export default function EnsembleBoxplot({ stateCode = "CO" }) {
     <div style={{ width: "100%", height: "100%" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 8 }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-          <div style={{ fontWeight: 700, marginBottom: 0 }}>District distribution (GUI-17)</div>
+          <div style={{ fontWeight: 700, marginBottom: 0 }}>District distribution</div>
           <Info
             label="Ensemble boxplot info"
             text="Box/whisker from ensemble distribution. Dashed vertical line shows the enacted plan."

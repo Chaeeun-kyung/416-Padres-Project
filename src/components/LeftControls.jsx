@@ -76,7 +76,10 @@ function LeftControls({ precinctGeojson }) {
       DEMOGRAPHIC_METRICS.map((metric) => metric.key),
       cvapSummaryForFeasible,
       DEMOGRAPHIC_METRIC_LABELS,
-      { includeOnlyFeasible: Boolean(cvapSummaryForFeasible) },
+      {
+        includeOnlyFeasible: Boolean(cvapSummaryForFeasible),
+        includeOnlyMinorities: true,
+      },
     ),
     [cvapSummaryForFeasible],
   )

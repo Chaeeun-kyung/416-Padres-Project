@@ -1,289 +1,114 @@
 import { useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { FEASIBLE_THRESHOLD_MILLIONS, RACIAL_GROUPS } from '../../data/racialGroupConfig'
+import { buildGroupOptions, FEASIBLE_THRESHOLD_MILLIONS } from '../../data/racialGroupConfig'
+import stateSummary from '../../data/mock/stateSummary.json'
 import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
 
 const GROUP_A_COLOR = '#0F766E'
 const GROUP_B_COLOR = '#D97706'
-const KDE_BANDWIDTH = 0.022
-const DENSITY_POINT_COUNT = 101
+const DENSITY_POINT_COUNT = 121
 
-const GROUP_TO_CVAP_FIELD = {
-  white_pct: 'CVAP_WHT24',
-  black_pct: 'CVAP_BLA24',
-  latino_pct: 'CVAP_HSP24',
-  asian_pct: 'CVAP_ASI24',
+const DEFAULT_CURVES = {
+  dem: {
+    group: [{ mean: 0.74, std: 0.08, weight: 1 }],
+    nonGroup: [{ mean: 0.44, std: 0.09, weight: 1 }],
+  },
+  rep: {
+    group: [{ mean: 0.26, std: 0.08, weight: 1 }],
+    nonGroup: [{ mean: 0.56, std: 0.09, weight: 1 }],
+  },
 }
 
-const GROUP_TO_PCT_FIELD = {
-  white_pct: 'PCT_CVAP_WHT',
-  black_pct: 'PCT_CVAP_BLA',
-  latino_pct: 'PCT_CVAP_HSP',
-  asian_pct: 'PCT_CVAP_ASI',
+const STATE_GROUP_CURVES = {
+  CO: {
+      latino_pct: {
+        dem: {
+          group: [{ mean: 0.79, std: 0.08, weight: 0.78 }, { mean: 0.66, std: 0.05, weight: 0.22 }],
+          nonGroup: [{ mean: 0.31, std: 0.03, weight: 0.52 }, { mean: 0.45, std: 0.09, weight: 0.48 }],
+        },
+        rep: {
+          group: [{ mean: 0.21, std: 0.08, weight: 0.78 }, { mean: 0.34, std: 0.05, weight: 0.22 }],
+          nonGroup: [{ mean: 0.69, std: 0.03, weight: 0.52 }, { mean: 0.55, std: 0.09, weight: 0.48 }],
+        },
+      },
+    },
+  AZ: {
+    latino_pct: {
+      dem: {
+        group: [{ mean: 0.75, std: 0.08, weight: 0.72 }, { mean: 0.62, std: 0.06, weight: 0.28 }],
+        nonGroup: [{ mean: 0.34, std: 0.04, weight: 0.48 }, { mean: 0.48, std: 0.1, weight: 0.52 }],
+      },
+      rep: {
+        group: [{ mean: 0.25, std: 0.08, weight: 0.72 }, { mean: 0.38, std: 0.06, weight: 0.28 }],
+        nonGroup: [{ mean: 0.66, std: 0.04, weight: 0.48 }, { mean: 0.52, std: 0.1, weight: 0.52 }],
+      },
+    },
+    black_pct: {
+      dem: {
+        group: [{ mean: 0.84, std: 0.055, weight: 0.82 }, { mean: 0.72, std: 0.06, weight: 0.18 }],
+        nonGroup: [{ mean: 0.29, std: 0.03, weight: 0.5 }, { mean: 0.44, std: 0.09, weight: 0.5 }],
+      },
+      rep: {
+        group: [{ mean: 0.16, std: 0.055, weight: 0.82 }, { mean: 0.28, std: 0.06, weight: 0.18 }],
+        nonGroup: [{ mean: 0.71, std: 0.03, weight: 0.5 }, { mean: 0.56, std: 0.09, weight: 0.5 }],
+      },
+    },
+  },
 }
 
-function clamp01(value) {
-  if (!Number.isFinite(value)) return null
-  return Math.max(0, Math.min(1, value))
+function gaussianPdf(x, mean, std) {
+  const safeStd = Math.max(0.02, Number(std) || 0.08)
+  const exponent = -0.5 * ((x - mean) / safeStd) ** 2
+  return (1 / (safeStd * Math.sqrt(2 * Math.PI))) * Math.exp(exponent)
 }
 
-function gaussianKernel(u) {
-  return Math.exp(-0.5 * u * u) / Math.sqrt(2 * Math.PI)
+function gaussianMixturePdf(x, components) {
+  if (!Array.isArray(components) || components.length === 0) return 0
+  const totalWeight = components.reduce((sum, component) => sum + (Number(component?.weight) || 0), 0) || 1
+  return components.reduce((sum, component) => {
+    const weight = (Number(component?.weight) || 0) / totalWeight
+    const mean = Number(component?.mean)
+    const std = Number(component?.std)
+    return sum + (weight * gaussianPdf(x, mean, std))
+  }, 0)
 }
 
-function buildWeightedDensitySeries(samples, weights, pointCount = DENSITY_POINT_COUNT, bandwidth = KDE_BANDWIDTH) {
-  if (!samples.length || !weights.length || samples.length !== weights.length) {
-    return []
-  }
-
-  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0)
-  if (!(totalWeight > 0)) {
-    return []
-  }
-
+function buildDensityRows(curves) {
   const rows = []
-  for (let index = 0; index < pointCount; index += 1) {
-    const x = index / (pointCount - 1)
-    let weightedKernelSum = 0
-
-    for (let sampleIndex = 0; sampleIndex < samples.length; sampleIndex += 1) {
-      const u = (x - samples[sampleIndex]) / bandwidth
-      weightedKernelSum += weights[sampleIndex] * gaussianKernel(u)
-    }
-
+  for (let index = 0; index < DENSITY_POINT_COUNT; index += 1) {
+    const x = index / (DENSITY_POINT_COUNT - 1)
     rows.push({
       x,
-      y: weightedKernelSum / (totalWeight * bandwidth),
+      group: gaussianMixturePdf(x, curves.group),
+      nonGroup: gaussianMixturePdf(x, curves.nonGroup),
     })
   }
-
   return rows
+}
+
+function getCurvePreset(stateCode, groupKey) {
+  const statePreset = STATE_GROUP_CURVES[stateCode] ?? {}
+  return statePreset[groupKey] ?? DEFAULT_CURVES
 }
 
 function formatDensity(value) {
   return Number.isFinite(value) ? value.toFixed(2) : '0.00'
 }
 
-function EICurve({ features = [] }) {
-  const availableGroups = useMemo(() => {
-    const totals = new Map()
-
-    ;(features ?? []).forEach((feature) => {
-      const props = feature?.properties ?? {}
-      const totalCvap = Number(props.CVAP_TOT24)
-      if (!Number.isFinite(totalCvap) || totalCvap <= 0) return
-
-      RACIAL_GROUPS.forEach((group) => {
-        const cvapField = GROUP_TO_CVAP_FIELD[group.key]
-        const pctField = GROUP_TO_PCT_FIELD[group.key]
-
-        let groupCvap = Number(props[cvapField])
-        if (!Number.isFinite(groupCvap) || groupCvap < 0) {
-          const pct = clamp01(Number(props[pctField]))
-          groupCvap = pct !== null ? pct * totalCvap : NaN
-        }
-
-        if (!Number.isFinite(groupCvap) || groupCvap <= 0) return
-        totals.set(group.key, (totals.get(group.key) ?? 0) + groupCvap)
-      })
-    })
-
-    return RACIAL_GROUPS
-      .filter((group) => Number(totals.get(group.key) ?? 0) > 0)
-      .map((group) => {
-        const millions = (totals.get(group.key) ?? 0) / 1000000
-        return {
-          value: group.key,
-          label: group.label,
-          baseLabel: group.label,
-          cvapMillions: millions,
-        }
-      })
-      .filter((group) => group.cvapMillions >= FEASIBLE_THRESHOLD_MILLIONS)
-  }, [features])
-
-  const [selectedGroup, setSelectedGroup] = useState('')
-  const [focusedCandidate, setFocusedCandidate] = useState(null)
-  const effectiveGroup = availableGroups.some((group) => group.value === selectedGroup)
-    ? selectedGroup
-    : (availableGroups[0]?.value ?? '')
-
-  const activeGroupMeta = availableGroups.find((group) => group.value === effectiveGroup)
-  const activeGroupLabel = activeGroupMeta?.baseLabel ?? effectiveGroup
-  const nonGroupLabel = activeGroupLabel ? `Non-${activeGroupLabel}` : 'Non-selected group'
-
-  const densityByCandidate = useMemo(() => {
-    if (!effectiveGroup) {
-      return { demRows: [], repRows: [] }
-    }
-
-    const cvapField = GROUP_TO_CVAP_FIELD[effectiveGroup]
-    const pctField = GROUP_TO_PCT_FIELD[effectiveGroup]
-    const demGroupSamples = []
-    const demGroupWeights = []
-    const demNonGroupSamples = []
-    const demNonGroupWeights = []
-    const repGroupSamples = []
-    const repGroupWeights = []
-    const repNonGroupSamples = []
-    const repNonGroupWeights = []
-
-    ;(features ?? []).forEach((feature) => {
-      const props = feature?.properties ?? {}
-      const votesDem = Number(props.votes_dem)
-      const votesRep = Number(props.votes_rep)
-      const votesTotal = Number(props.votes_total)
-      const totalCvap = Number(props.CVAP_TOT24)
-
-      if (!Number.isFinite(votesDem) || !Number.isFinite(votesRep) || !Number.isFinite(votesTotal) || votesTotal <= 0) return
-      if (!Number.isFinite(totalCvap) || totalCvap <= 0) return
-
-      let groupCvap = Number(props[cvapField])
-      if (!Number.isFinite(groupCvap) || groupCvap < 0) {
-        const pct = clamp01(Number(props[pctField]))
-        if (pct === null) return
-        groupCvap = pct * totalCvap
-      }
-
-      const cappedGroupCvap = Math.max(0, Math.min(totalCvap, groupCvap))
-      const nonGroupCvap = Math.max(0, totalCvap - cappedGroupCvap)
-      if (cappedGroupCvap <= 0 && nonGroupCvap <= 0) return
-
-      const demSupport = clamp01(votesDem / votesTotal)
-      const repSupport = clamp01(votesRep / votesTotal)
-      if (demSupport === null || repSupport === null) return
-
-      if (cappedGroupCvap > 0) {
-        demGroupSamples.push(demSupport)
-        demGroupWeights.push(cappedGroupCvap)
-        repGroupSamples.push(repSupport)
-        repGroupWeights.push(cappedGroupCvap)
-      }
-
-      if (nonGroupCvap > 0) {
-        demNonGroupSamples.push(demSupport)
-        demNonGroupWeights.push(nonGroupCvap)
-        repNonGroupSamples.push(repSupport)
-        repNonGroupWeights.push(nonGroupCvap)
-      }
-    })
-
-    const demGroupSeries = buildWeightedDensitySeries(demGroupSamples, demGroupWeights)
-    const demNonGroupSeries = buildWeightedDensitySeries(demNonGroupSamples, demNonGroupWeights)
-    const repGroupSeries = buildWeightedDensitySeries(repGroupSamples, repGroupWeights)
-    const repNonGroupSeries = buildWeightedDensitySeries(repNonGroupSamples, repNonGroupWeights)
-
-    const demRows = demGroupSeries.map((row, index) => ({
-      x: row.x,
-      group: row.y,
-      nonGroup: demNonGroupSeries[index]?.y ?? null,
-    }))
-
-    const repRows = repGroupSeries.map((row, index) => ({
-      x: row.x,
-      group: row.y,
-      nonGroup: repNonGroupSeries[index]?.y ?? null,
-    }))
-
-    return { demRows, repRows }
-  }, [effectiveGroup, features])
-
-  if (!availableGroups.length) {
-    return <div className="small-text muted-text">No feasible statewide CVAP group data found for EI display.</div>
-  }
-
-  const hasDensity = densityByCandidate.demRows.length > 0 && densityByCandidate.repRows.length > 0
-
-  return (
-    <div style={{ width: '100%', height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ fontWeight: 700 }}>Ecological Inference</div>
-          <Info
-            label="EI chart info"
-            text={`Uses statewide precinct-level 2024 Presidential results with CVAP-weighted densities. Select one feasible group (>${FEASIBLE_THRESHOLD_MILLIONS.toFixed(1)}M CVAP) to compare with its non-group complement.`}
-          />
-        </div>
-        <div style={{ width: 220 }}>
-          <Select
-            ariaLabel="EI demographic group"
-            value={effectiveGroup}
-            onChange={setSelectedGroup}
-            options={availableGroups}
-          />
-        </div>
-      </div>
-
-      {!hasDensity && (
-        <div className="small-text muted-text" style={{ marginTop: 8 }}>
-          Not enough statewide precinct data to compute EI density curves for the selected group.
-        </div>
-      )}
-
-      {hasDensity && (
-        <div
-          style={{
-            width: '100%',
-            height: '90%',
-            display: 'grid',
-            gridTemplateRows: focusedCandidate ? '1fr' : '1fr 1fr',
-            gap: 12,
-          }}
-        >
-        {(focusedCandidate === null || focusedCandidate === 'dem') && (
-        <CardChart
-          title="Support for Democratic Candidate (2024)"
-          data={densityByCandidate.demRows}
-          labelA={activeGroupLabel}
-          labelB={nonGroupLabel}
-          isFocused={focusedCandidate === 'dem'}
-          onToggleFocus={() => setFocusedCandidate((current) => (current === 'dem' ? null : 'dem'))}
-        />
-        )}
-        {(focusedCandidate === null || focusedCandidate === 'rep') && (
-        <CardChart
-          title="Support for Republican Candidate (2024)"
-          data={densityByCandidate.repRows}
-          labelA={activeGroupLabel}
-          labelB={nonGroupLabel}
-          isFocused={focusedCandidate === 'rep'}
-          onToggleFocus={() => setFocusedCandidate((current) => (current === 'rep' ? null : 'rep'))}
-        />
-        )}
-      </div>
-      )}
-    </div>
-  )
-}
-
-function CardChart({ title, data, labelA, labelB, isFocused, onToggleFocus }) {
+function CurvePanel({ title, data, labelA, labelB }) {
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={onToggleFocus}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onToggleFocus?.()
-        }
-      }}
       style={{
         minHeight: 0,
         background: '#f8fafc',
-        border: isFocused ? '2px solid #334155' : '1px solid #e2e8f0',
+        border: '1px solid #e2e8f0',
         borderRadius: 10,
         padding: '8px 8px 2px',
-        cursor: 'pointer',
       }}
-      aria-label={`${title}. Click to ${isFocused ? 'shrink' : 'expand'}`}
     >
-      <div style={{ fontWeight: 700, marginBottom: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>{title}</span>
-        <span className="small-text muted-text">{isFocused ? 'Click to restore split view' : 'Click to expand'}</span>
-      </div>
-      <ResponsiveContainer width="100%" height="86%">
+      <div style={{ fontWeight: 700, marginBottom: 4 }}>{title}</div>
+      <ResponsiveContainer width="100%" height="88%">
         <AreaChart data={data} margin={{ top: 8, right: 14, left: 4, bottom: 10 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
           <XAxis
@@ -323,6 +148,90 @@ function CardChart({ title, data, labelA, labelB, isFocused, onToggleFocus }) {
           />
         </AreaChart>
       </ResponsiveContainer>
+    </div>
+  )
+}
+
+function EICurve({ stateCode }) {
+  const summary = stateSummary?.[stateCode]
+
+  const groupOptions = useMemo(() => {
+    const stateSummaryGroups = Object.keys(summary?.racialEthnicPopulationMillions ?? {})
+    const statePresetGroups = Object.keys(STATE_GROUP_CURVES[stateCode] ?? {})
+    const stateGroups = [...new Set([...stateSummaryGroups, ...statePresetGroups])]
+    const feasibleOnly = buildGroupOptions(
+      stateGroups,
+      summary,
+      {},
+      { includeOnlyFeasible: true },
+    )
+    if (feasibleOnly.length) return feasibleOnly
+    return buildGroupOptions(stateGroups, summary, {}, {})
+  }, [stateCode, summary])
+
+  const [selectedGroup, setSelectedGroup] = useState(groupOptions[0]?.value ?? '')
+  const effectiveGroup = groupOptions.some((option) => option.value === selectedGroup)
+    ? selectedGroup
+    : (groupOptions[0]?.value ?? '')
+
+  const activeGroupLabel = groupOptions.find((group) => group.value === effectiveGroup)?.label ?? effectiveGroup
+  const nonGroupLabel = activeGroupLabel ? `Non-${activeGroupLabel}` : 'Non-selected group'
+
+  const densityByCandidate = useMemo(() => {
+    if (!effectiveGroup) return { demRows: [], repRows: [] }
+    const preset = getCurvePreset(stateCode, effectiveGroup)
+    return {
+      demRows: buildDensityRows(preset.dem),
+      repRows: buildDensityRows(preset.rep),
+    }
+  }, [effectiveGroup, stateCode])
+
+  if (!groupOptions.length) {
+    return <div className="small-text muted-text">No feasible statewide minority group data found for EI display.</div>
+  }
+
+  return (
+    <div style={{ width: '100%', height: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontWeight: 700 }}>Ecological Inference</div>
+          <Info
+            label="EI chart info"
+            text={`Dummy EI curves: x-axis is candidate support share (0 to 1), y-axis is probability density. Select one feasible minority group (>${FEASIBLE_THRESHOLD_MILLIONS.toFixed(1)}M CVAP) to compare against its non-group complement.`}
+          />
+        </div>
+        <div style={{ width: 230 }}>
+          <Select
+            ariaLabel="EI demographic group"
+            value={effectiveGroup}
+            onChange={setSelectedGroup}
+            options={groupOptions}
+          />
+        </div>
+      </div>
+
+      <div
+        style={{
+          width: '100%',
+          height: '90%',
+          display: 'grid',
+          gridTemplateRows: '1fr 1fr',
+          gap: 12,
+        }}
+      >
+        <CurvePanel
+          title="Support for Democratic Candidate"
+          data={densityByCandidate.demRows}
+          labelA={activeGroupLabel}
+          labelB={nonGroupLabel}
+        />
+        <CurvePanel
+          title="Support for Republican Candidate"
+          data={densityByCandidate.repRows}
+          labelA={activeGroupLabel}
+          labelB={nonGroupLabel}
+        />
+      </div>
     </div>
   )
 }

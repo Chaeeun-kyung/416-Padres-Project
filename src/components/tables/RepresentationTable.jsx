@@ -25,7 +25,7 @@ function RepresentationTable({ rows, selectedDistrictId, onSelectDistrict }) {
               return (
                 <tr
                   key={row.districtId}
-                  onClick={() => onSelectDistrict(row.districtId)}
+                  onClick={() => onSelectDistrict(selected ? null : row.districtId)}
                   style={{
                     borderBottom: '1px solid var(--ui-border)',
                     cursor: 'pointer',

@@ -17,10 +17,10 @@
   },
   "AZ": {
     "districts": 9,
-    "feasibleGroupKeys": ["white_pct", "black_pct", "latino_pct"],
+    "feasibleGroupKeys": ["white_pct", "latino_pct"],
     "racialEthnicPopulationMillions": {
       "white_pct": 3.17,
-      "black_pct": 0.45,
+      "black_pct": 0.39,
       "latino_pct": 1.77,
       "native_american_pct": 0.27,
       "asian_pct": 0.22

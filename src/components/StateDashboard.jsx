@@ -12,7 +12,7 @@ const RIGHT_PANEL_MIN_WIDTH = 370
 const MAP_PANEL_MIN_WIDTH = 320
 const RIGHT_PANEL_SUMMARY_WIDTH = RIGHT_PANEL_MIN_WIDTH
 const ANALYSIS_TABS = new Set(['Gingles', 'EI', 'Ensembles'])
-const ANALYSIS_RIGHT_PANEL_RATIO = 0.43
+const ANALYSIS_RIGHT_PANEL_RATIO = 0.5
 
 function StateDashboard() {
   const selectedStateCode = useAppStore((state) => state.selectedStateCode)
@@ -140,4 +140,3 @@ function StateDashboard() {
 }
 
 export default StateDashboard
-

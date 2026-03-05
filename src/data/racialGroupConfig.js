@@ -7,6 +7,9 @@ export const RACIAL_GROUPS = [
   { key: 'native_american_pct', label: 'Native American' },
   { key: 'asian_pct', label: 'Asian' },
 ]
+export const MINORITY_GROUP_KEYS = new Set(
+  RACIAL_GROUPS.map((group) => group.key).filter((key) => key !== 'white_pct'),
+)
 
 const GROUP_INDEX = RACIAL_GROUPS.reduce((acc, group, idx) => {
   acc[group.key] = idx
@@ -34,9 +37,10 @@ export function getFeasibleGroupKeys(summary, threshold = FEASIBLE_THRESHOLD_MIL
 }
 
 export function buildGroupOptions(groupKeys, summary, labelOverrides = {}, options = {}) {
-  const { includeOnlyFeasible = false } = options
+  const { includeOnlyFeasible = false, includeOnlyMinorities = false } = options
   const feasible = getFeasibleGroupKeys(summary)
   const keys = [...new Set(groupKeys)]
+    .filter((key) => !includeOnlyMinorities || MINORITY_GROUP_KEYS.has(key))
     .filter((key) => !includeOnlyFeasible || feasible.has(key))
     .sort((a, b) => (GROUP_INDEX[a] ?? 999) - (GROUP_INDEX[b] ?? 999))
   return keys
