@@ -47,10 +47,10 @@ export default function EnsembleBoxplot({ stateCode = "CO" }) {
   // SVG layout
   const W = 520
   const H = 240
-  const padL = 48
+  const padL = 64
   const padR = 18
   const padT = 18
-  const padB = 38
+  const padB = 52
 
   const x0 = padL
   const x1 = W - padR
@@ -86,6 +86,7 @@ export default function EnsembleBoxplot({ stateCode = "CO" }) {
       <svg width="100%" viewBox={`0 0 ${W} ${H}`}>
         {/* axis */}
         <line x1={x0} x2={x1} y1={y1} y2={y1} stroke="#9ca3af" />
+        <line x1={x0} x2={x0} y1={y0} y2={y1} stroke="#9ca3af" />
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <g key={t}>
             <line x1={scaleX(t)} x2={scaleX(t)} y1={y1} y2={y1 + 6} stroke="#9ca3af" />
@@ -126,6 +127,19 @@ export default function EnsembleBoxplot({ stateCode = "CO" }) {
         {/* labels */}
         <text x={x0} y={14} fontSize="12" fill="#111827">
           {district}
+        </text>
+        <text x={(x0 + x1) / 2} y={H - 12} textAnchor="middle" fontSize="12" fill="#374151">
+          Minority share (%)
+        </text>
+        <text
+          x={20}
+          y={(y0 + y1) / 2}
+          textAnchor="middle"
+          fontSize="12"
+          fill="#374151"
+          transform={`rotate(-90, 20, ${(y0 + y1) / 2})`}
+        >
+          Distribution summary
         </text>
       </svg>
 

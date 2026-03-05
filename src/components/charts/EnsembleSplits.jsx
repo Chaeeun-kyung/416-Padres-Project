@@ -45,14 +45,30 @@ function EnsembleSplits({ stateCode }) {
         <div style={{ fontWeight: 700 }}>Ensemble Split Comparison</div>
         <Info
           label="Ensemble split info"
-          text="Frequency of election splits (#Republican / #Democratic seats), aligned to a matched split range across ensembles."
+          text={(
+            <>
+            This chart shows the distribution of party seat outcomes across simulated district plans.
+            <br />
+            Each bar represents the frequency of a specific outcome (R/D), allowing comparison between race-blind and VRA-constrained ensembles.
+            </>
+          )}
         />
       </div>
       <ResponsiveContainer width="100%" height="91%">
-        <BarChart data={data} margin={{ top: 12, right: 16, left: 8, bottom: 18 }}>
+        <BarChart data={data} margin={{ top: 12, right: 16, left: 8, bottom: 36 }}>
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="split" angle={-15} textAnchor="end" interval={0} height={46} />
-          <YAxis allowDecimals={false} />
+          <XAxis
+            dataKey="split"
+            angle={-15}
+            textAnchor="end"
+            interval={0}
+            height={64}
+            label={{ value: 'Seat split (R / D)', position: 'insideBottom', dy: -8 }}
+          />
+          <YAxis
+            allowDecimals={false}
+            label={{ value: 'Plan frequency', angle: -90, position: 'insideLeft' }}
+          />
           <Tooltip />
           <Legend />
           <Bar dataKey="raceBlind" fill="#c29a32" name="Race-blind" />

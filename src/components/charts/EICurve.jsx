@@ -9,6 +9,13 @@ const GROUP_A_COLOR = '#0F766E'
 const GROUP_B_COLOR = '#D97706'
 const DENSITY_POINT_COUNT = 121
 
+function findLatinoOption(options) {
+  return (options ?? []).find((option) => (
+    /latino|hisp/i.test(String(option?.value ?? ''))
+    || /latino|hispanic/i.test(String(option?.label ?? ''))
+  ))
+}
+
 const DEFAULT_CURVES = {
   dem: {
     group: [{ mean: 0.74, std: 0.08, weight: 1 }],
@@ -109,21 +116,27 @@ function CurvePanel({ title, data, labelA, labelB }) {
     >
       <div style={{ fontWeight: 700, marginBottom: 4 }}>{title}</div>
       <ResponsiveContainer width="100%" height="88%">
-        <AreaChart data={data} margin={{ top: 8, right: 14, left: 4, bottom: 10 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 14, left: 10, bottom: 28 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#cbd5e1" />
           <XAxis
             dataKey="x"
             type="number"
             domain={[0, 1]}
             tickCount={6}
+            height={44}
             tickFormatter={(value) => Number(value).toFixed(1)}
+            label={{ value: 'Support share', position: 'insideBottom', dy: 12 }}
           />
-          <YAxis tickFormatter={(value) => formatDensity(Number(value))} width={56} />
+          <YAxis
+            tickFormatter={(value) => formatDensity(Number(value))}
+            width={62}
+            label={{ value: 'Density', angle: -90, position: 'insideLeft', dx: -2 }}
+          />
           <Tooltip
             formatter={(value, name) => [formatDensity(Number(value)), name]}
             labelFormatter={(value) => `Support share: ${Number(value).toFixed(2)}`}
           />
-          <Legend />
+          <Legend wrapperStyle={{ bottom: 15 }} />
           <Area
             type="monotone"
             dataKey="group"
@@ -169,10 +182,11 @@ function EICurve({ stateCode }) {
     return buildGroupOptions(stateGroups, summary, {}, {})
   }, [stateCode, summary])
 
-  const [selectedGroup, setSelectedGroup] = useState(groupOptions[0]?.value ?? '')
+  const defaultGroupValue = findLatinoOption(groupOptions)?.value ?? groupOptions[0]?.value ?? ''
+  const [selectedGroup, setSelectedGroup] = useState(defaultGroupValue)
   const effectiveGroup = groupOptions.some((option) => option.value === selectedGroup)
     ? selectedGroup
-    : (groupOptions[0]?.value ?? '')
+    : defaultGroupValue
 
   const activeGroupLabel = groupOptions.find((group) => group.value === effectiveGroup)?.label ?? effectiveGroup
   const nonGroupLabel = activeGroupLabel ? `Non-${activeGroupLabel}` : 'Non-selected group'
@@ -197,7 +211,15 @@ function EICurve({ stateCode }) {
           <div style={{ fontWeight: 700 }}>Ecological Inference</div>
           <Info
             label="EI chart info"
-            text={`Dummy EI curves: x-axis is candidate support share (0 to 1), y-axis is probability density. Select one feasible minority group (>${FEASIBLE_THRESHOLD_MILLIONS.toFixed(1)}M CVAP) to compare against its non-group complement.`}
+            text={(
+              <>
+              This chart estimates candidate support among different racial groups using ecological inference.
+              <br />
+              The x-axis shows the estimated share of a group voting for a candidate, and the y-axis shows the probability of that estimate.
+              <br />
+              The curves indicate likely voting preferences across groups.
+              </>
+            )}
           />
         </div>
         <div style={{ width: 230 }}>
