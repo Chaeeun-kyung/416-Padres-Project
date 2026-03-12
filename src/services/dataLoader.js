@@ -1,6 +1,8 @@
 const precinctCache = new Map()
 const districtCache = new Map()
 
+// Normalizes vote fields so downstream UI can treat them as numbers.
+// This avoids repeated Number(...) calls in chart/table components.
 function normalizeFeature(feature) {
   const props = feature?.properties ?? {}
   return {
@@ -14,6 +16,8 @@ function normalizeFeature(feature) {
   }
 }
 
+// Loads precinct GeoJSON for the selected state and caches it in memory.
+// Current app convention is to always use the CVAP-enriched precinct file.
 export async function loadPrecinctGeoJSON(stateCode) {
   if (!stateCode) return null
   if (precinctCache.has(stateCode)) {
@@ -31,6 +35,8 @@ export async function loadPrecinctGeoJSON(stateCode) {
   return geojson
 }
 
+// Loads district boundary GeoJSON for the selected state and caches it.
+// Returns null if district files are missing or malformed so map can degrade gracefully.
 export async function loadDistrictGeoJSON(stateCode) {
   if (!stateCode) return null
   if (districtCache.has(stateCode)) {
@@ -53,6 +59,8 @@ export async function loadDistrictGeoJSON(stateCode) {
   }
 }
 
+// Computes a bounding box from arbitrary GeoJSON feature coordinates.
+// Output format matches Leaflet fitBounds input: [[minLat, minLng], [maxLat, maxLng]].
 export function deriveStateBounds(features) {
   let minLat = Infinity
   let minLng = Infinity

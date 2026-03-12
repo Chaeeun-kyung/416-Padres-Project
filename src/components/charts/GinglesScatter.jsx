@@ -10,8 +10,8 @@ const MAX_RENDERED_PRECINCTS = 900
 const SAMPLE_BIN_COUNT = 28
 
 const GROUP_OPTIONS = [
-  { value: 'latino_pct', label: 'Latino (Feasible >0.4M)' },
-  { value: 'white_pct', label: 'White (Feasible >0.4M)' },
+  { value: 'latino_pct', label: 'Latino' },
+  { value: 'white_pct', label: 'White' },
 ]
 const GROUP_DISPLAY_LABEL = {
   latino_pct: 'Latino',
@@ -21,6 +21,8 @@ const GROUP_DISPLAY_LABEL = {
 let cachedRows = null
 let loadingPromise = null
 
+// Converts mixed percent formats into a normalized decimal in [0, 1].
+// Accepts values already in decimal form (0.42) or whole-percent form (42).
 function normalizePct(value) {
   if (!Number.isFinite(value)) return null
   if (value >= 0 && value <= 1) return value
@@ -28,6 +30,8 @@ function normalizePct(value) {
   return null
 }
 
+// Validates and normalizes one raw JSON row from the Gingles dataset.
+// Produces a consistent shape used by all chart calculations.
 function parsePoint(row) {
   const demShare = normalizePct(Number(row?.dem_share))
   const repShare = normalizePct(Number(row?.rep_share))
@@ -39,10 +43,13 @@ function parsePoint(row) {
   const pid = String(pidRaw ?? '').trim()
   if (!pid) return null
 
-  const stateRaw = row?.state
-  const state = typeof stateRaw === 'string' && stateRaw.trim().length === 2
-    ? stateRaw.trim().toUpperCase()
-    : null
+  let state = null
+  if (typeof row?.state === 'string') {
+    const trimmed = row.state.trim().toUpperCase()
+    if (trimmed.length === 2) {
+      state = trimmed
+    }
+  }
 
   return {
     pid,
@@ -54,6 +61,8 @@ function parsePoint(row) {
   }
 }
 
+// Loads, validates, and caches Gingles rows once for the app session.
+// This avoids repeated network requests when users switch tabs/states.
 async function loadRows() {
   if (cachedRows) return cachedRows
   if (!loadingPromise) {
@@ -79,14 +88,18 @@ async function loadRows() {
   return loadingPromise
 }
 
+// Formats decimal percentages into friendly label text.
 function formatPct(value) {
   return Number.isFinite(value) ? `${value.toFixed(1)}%` : 'N/A'
 }
 
+// Restricts numeric values to [0, 1] so rendered trend lines remain valid.
 function clamp01(value) {
   return Math.max(0, Math.min(1, value))
 }
 
+// Solves a linear system with Gaussian elimination.
+// Used internally by polynomial fitting to compute trend coefficients.
 function solveLinearSystem(matrix, vector) {
   const n = vector.length
   const aug = matrix.map((row, rowIndex) => [...row, vector[rowIndex]])
@@ -125,6 +138,8 @@ function solveLinearSystem(matrix, vector) {
   return aug.map((row) => row[n])
 }
 
+// Fits a polynomial (default cubic) to scatter data using least squares.
+// Returns coefficients c0..cn so y = c0 + c1*x + c2*x^2 + ...
 function fitPolynomial(points, valueKey, degree = 3) {
   const cleanPoints = points.filter((point) => (
     Number.isFinite(point?.x) && Number.isFinite(point?.[valueKey])
@@ -154,6 +169,7 @@ function fitPolynomial(points, valueKey, degree = 3) {
   return solveLinearSystem(matrix, vector)
 }
 
+// Evaluates a polynomial at a single x value.
 function evaluatePolynomial(coeffs, x) {
   if (!Array.isArray(coeffs) || !coeffs.length) return null
   let result = 0
@@ -165,6 +181,8 @@ function evaluatePolynomial(coeffs, x) {
   return result
 }
 
+// Picks roughly even samples from an ordered list to preserve coverage.
+// Used to keep scatter rendering fast while still showing full x-range shape.
 function pickEvenly(items, count) {
   if (count <= 0 || !items.length) return []
   if (count >= items.length) return [...items]
@@ -180,6 +198,8 @@ function pickEvenly(items, count) {
   return picked
 }
 
+// Downsamples very large precinct sets while preserving distribution across x bins.
+// This keeps chart interactions smooth and avoids plotting thousands of points.
 function sampleRowsForRender(rows, groupKey, maxRows = MAX_RENDERED_PRECINCTS, binCount = SAMPLE_BIN_COUNT) {
   if (!Array.isArray(rows) || rows.length <= maxRows) return rows ?? []
 
@@ -217,6 +237,20 @@ function sampleRowsForRender(rows, groupKey, maxRows = MAX_RENDERED_PRECINCTS, b
   return sampled.slice(0, maxRows)
 }
 
+// Ensures selected group exists in options; otherwise falls back safely.
+function getValidGroupOrFallback(groupValue) {
+  const isValid = GROUP_OPTIONS.some((option) => option.value === groupValue)
+  if (isValid) return groupValue
+  return GROUP_OPTIONS[0].value
+}
+
+// Normalizes state code inputs for reliable comparison/filtering.
+function normalizeStateCode(value) {
+  return String(value ?? '').trim().toUpperCase()
+}
+
+// Builds smooth trend rows (Dem and Rep) from full state data.
+// Trend points are generated on a fixed [0, 100] x-grid for line rendering.
 function buildTrendRows(stateRows, groupKey, degree = 3, pointCount = 90) {
   const points = stateRows
     .map((row) => ({
@@ -244,6 +278,7 @@ function buildTrendRows(stateRows, groupKey, degree = 3, pointCount = 90) {
   })
 }
 
+// Custom tooltip renderer that supports both scatter points and trend line points.
 function TooltipCard({ active, payload, groupLabel }) {
   if (active === false || !payload?.length) return null
   const rowCandidate = payload.find((item) => item?.payload)?.payload ?? payload[0]?.payload
@@ -278,21 +313,27 @@ function TooltipCard({ active, payload, groupLabel }) {
   )
 }
 
+// Transparent hover target to make sparse points easier to inspect with tooltip.
 function HitCircle(props) {
   const { cx, cy } = props ?? {}
   if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null
   return <circle cx={cx} cy={cy} r={8} fill="rgba(0,0,0,0)" />
 }
 
+// Main Gingles chart component.
+// Flow:
+// 1) Load/cached data
+// 2) Filter by selected state
+// 3) Sample for render speed
+// 4) Build scatter and trend rows
+// 5) Render chart with group selector + tooltip
 function GinglesScatter({ stateCode }) {
   const [selectedGroup, setSelectedGroup] = useState('latino_pct')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const effectiveGroup = GROUP_OPTIONS.some((option) => option.value === selectedGroup)
-    ? selectedGroup
-    : GROUP_OPTIONS[0].value
+  const effectiveGroup = getValidGroupOrFallback(selectedGroup)
 
   const activeGroupLabel = GROUP_DISPLAY_LABEL[effectiveGroup] ?? 'Selected Group'
 
@@ -320,7 +361,7 @@ function GinglesScatter({ stateCode }) {
 
   const stateRows = useMemo(() => {
     if (!rows.length) return []
-    const normalizedState = String(stateCode ?? '').trim().toUpperCase()
+    const normalizedState = normalizeStateCode(stateCode)
     if (!normalizedState) return rows
 
     const hasStateTag = rows.some((row) => typeof row.state === 'string' && row.state.length === 2)

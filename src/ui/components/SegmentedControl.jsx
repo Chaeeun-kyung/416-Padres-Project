@@ -1,3 +1,4 @@
+// Horizontal segmented selector used for tab-like choices.
 function SegmentedControl({ options, value, onChange, ariaLabel }) {
   return (
     <div className="ui-segmented" role="tablist" aria-label={ariaLabel}>

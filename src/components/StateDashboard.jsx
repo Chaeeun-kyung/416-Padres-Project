@@ -19,6 +19,12 @@ const STATE_PRECLEARANCE_LABEL = {
   CO: 'Non-preclearance State',
 }
 
+// Main dashboard layout manager.
+// Responsibilities:
+// 1) Coordinate left controls, center map, and right analysis/details panel
+// 2) Load/hold currently selected state's precinct GeoJSON at dashboard scope
+// 3) Resize right panel (auto sizing for analysis tabs + manual drag handle)
+// 4) Provide top-level page actions (reset page, back to splash map)
 function StateDashboard() {
   const selectedStateCode = useAppStore((state) => state.selectedStateCode)
   const activeTab = useAppStore((state) => state.activeTab)
@@ -35,6 +41,8 @@ function StateDashboard() {
   const selectedStateName = STATE_META[selectedStateCode]?.name ?? 'State Dashboard'
   const preclearanceLabel = STATE_PRECLEARANCE_LABEL[selectedStateCode] ?? ''
 
+  // Computes safe width limits for right panel based on current grid size.
+  // We keep left and map panes usable while allowing chart tabs to expand.
   function getRightPanelWidthBounds() {
     if (!gridRef.current) {
       return { minWidth: RIGHT_PANEL_MIN_WIDTH, maxWidth: RIGHT_PANEL_MIN_WIDTH, paneAvailableWidth: RIGHT_PANEL_MIN_WIDTH }
@@ -69,6 +77,8 @@ function StateDashboard() {
     return () => cancelAnimationFrame(frameId)
   }, [activeTab, selectedDistrictId])
 
+  // Manual resize handler for the right panel drag bar.
+  // Pointer movement adjusts width in real time, clamped to computed bounds.
   function handleSidebarResizeStart(event) {
     if (!gridRef.current) return
 
@@ -125,7 +135,7 @@ function StateDashboard() {
         ref={gridRef}
         style={{ '--right-sidebar-width': `${rightPanelWidth}px` }}
       >
-        <LeftControls precinctGeojson={precinctGeojson} />
+        <LeftControls />
         <MapPanel
           selectedStateCode={selectedStateCode}
           onPrecinctGeojsonLoaded={setPrecinctGeojson}
