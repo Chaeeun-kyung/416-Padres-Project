@@ -1,3 +1,4 @@
+// App-enabled states and map defaults.
 export const STATE_META = {
   CO: {
     name: 'Colorado',
@@ -15,6 +16,7 @@ export const STATE_META = {
   },
 }
 
+// Display names by state code for labels/tooltips.
 export const STATE_NAME_BY_CODE = {
   AL: 'Alabama',
   AZ: 'Arizona',
@@ -67,6 +69,7 @@ export const STATE_NAME_BY_CODE = {
   WY: 'Wyoming',
 }
 
+// Census FIPS code to postal abbreviation lookup.
 export const FIPS_TO_STATE_CODE = {
   '01': 'AL',
   '04': 'AZ',
@@ -119,4 +122,5 @@ export const FIPS_TO_STATE_CODE = {
   '56': 'WY',
 }
 
+// All contiguous U.S. states (plus DC via FIPS map) used by splash map filtering.
 export const CONTIGUOUS_STATE_FIPS = Object.keys(FIPS_TO_STATE_CODE)

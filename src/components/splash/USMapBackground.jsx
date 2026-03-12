@@ -12,7 +12,12 @@ const LABEL_CENTER_OVERRIDES = {
   FL: [28.2, -82.0],
 }
 
+// Interactive U.S. splash map:
+// - renders all contiguous states
+// - highlights selectable states (CO/AZ)
+// - lets user enter dashboard by clicking a selectable state
 function USMapBackground({ selectedStateCode, onStateSelect }) {
+  // Convert TopoJSON -> GeoJSON and keep only contiguous states.
   const contiguousStatesGeojson = useMemo(() => {
     const states = feature(statesTopo, statesTopo.objects.states)
     return {
@@ -25,6 +30,7 @@ function USMapBackground({ selectedStateCode, onStateSelect }) {
   }, [])
 
   const stateLabels = useMemo(() => {
+    // Fast geometry-based center + area heuristic used for label placement/filtering.
     function getBoundsMeta(geometry) {
       let minLat = Infinity
       let minLng = Infinity
@@ -122,6 +128,7 @@ function USMapBackground({ selectedStateCode, onStateSelect }) {
     return buildDefaultStyle(stateCode)
   }
 
+  // Binds per-state tooltip, hover styling, and click behavior.
   function onEachStateFeature(stateFeature, layer) {
     const fips = String(stateFeature.id).padStart(2, '0')
     const stateCode = FIPS_TO_STATE_CODE[fips]
