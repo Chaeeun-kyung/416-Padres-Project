@@ -1,0 +1,109 @@
+{
+  "info": {
+    "_postman_id": "5a4bfe8c-80f0-4f95-a7fd-bd91547d8aab",
+    "name": "Padres Backend API (GUI-3)",
+    "description": "Client/server interface demo for use case GUI-3: State Summary Endpoint",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "[GUI-3] Get State Summary - AZ (200)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.test('Contains required summary fields', function () {",
+              "    pm.expect(body).to.have.property('districts');",
+              "    pm.expect(body).to.have.property('redistrictingControl');",
+              "    pm.expect(body).to.have.property('congressionalPartySummary');",
+              "});",
+              "",
+              "pm.test('State values are realistic', function () {",
+              "    pm.expect(body.districts).to.be.a('number');",
+              "    pm.expect(body.districts).to.be.above(0);",
+              "    pm.expect(body.redistrictingControl).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/states/AZ/summary"
+      },
+      "response": []
+    },
+    {
+      "name": "[GUI-3] Get State Summary - CO (200)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.test('CO response has district + party summary', function () {",
+              "    pm.expect(body.districts).to.be.a('number');",
+              "    pm.expect(body.congressionalPartySummary).to.have.property('democrats');",
+              "    pm.expect(body.congressionalPartySummary).to.have.property('republicans');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/states/CO/summary"
+      },
+      "response": []
+    },
+    {
+      "name": "[GUI-3] Get State Summary - Unknown State (404)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status is 404 for unknown state', function () {",
+              "    pm.response.to.have.status(404);",
+              "});",
+              "",
+              "const body = pm.response.json();",
+              "pm.test('Error payload has expected shape', function () {",
+              "    pm.expect(body.error).to.eql('State summary not found');",
+              "    pm.expect(body.stateCode).to.eql('AA');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/states/AA/summary"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}
