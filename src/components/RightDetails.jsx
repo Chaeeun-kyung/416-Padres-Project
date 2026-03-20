@@ -82,6 +82,36 @@ function buildStatewideCvapSummary(features) {
   }
 }
 
+function normalizeDistrictNumber(rawValue) {
+  if (rawValue === null || rawValue === undefined) return null
+  const digits = String(rawValue).match(/\d+/)?.[0]
+  return digits ? digits.padStart(2, '0') : null
+}
+
+function buildSelectedDistrictDatasetDetails(features, selectedDistrictId) {
+  if (!Array.isArray(features) || !selectedDistrictId) return null
+
+  const selectedDistrictNumber = normalizeDistrictNumber(selectedDistrictId)
+  if (!selectedDistrictNumber) return null
+
+  const matchingFeature = features.find((feature) => {
+    const props = feature?.properties ?? {}
+    return normalizeDistrictNumber(props.district_number ?? props.district_id) === selectedDistrictNumber
+  })
+
+  if (!matchingFeature) return null
+
+  const props = matchingFeature.properties ?? {}
+  if (!props.district_name && !props.plan_type && !props.plan_source_file) return null
+
+  return {
+    districtName: props.district_name ?? 'N/A',
+    districtNumber: normalizeDistrictNumber(props.district_number ?? props.district_id) ?? 'N/A',
+    planType: props.plan_type ?? 'N/A',
+    planSourceFile: props.plan_source_file ?? 'N/A',
+  }
+}
+
 function PopulationSummaryTable({ cvapTotal, districtCount, loading }) {
   const cvapValue = loading ? 'Loading...' : formatWholeNumber(cvapTotal)
   const rows = [
@@ -325,6 +355,38 @@ function EnsembleSummaryTable() {
   )
 }
 
+function DistrictDatasetDetailsTable({ details }) {
+  const rows = [
+    { label: 'District Name', value: details?.districtName ?? 'N/A' },
+    { label: 'District Number', value: details?.districtNumber ?? 'N/A' },
+    { label: 'Plan Type', value: details?.planType ?? 'N/A' },
+    { label: 'Source File', value: details?.planSourceFile ?? 'N/A' },
+  ]
+
+  return (
+    <div style={{ width: '100%', overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid var(--ui-border)', textAlign: 'left' }}>
+            <th style={{ padding: 6 }}>Field</th>
+            <th style={{ padding: 6, textAlign: 'right' }}>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label} style={{ borderBottom: '1px solid var(--ui-border)' }}>
+              <td style={{ padding: 6 }}>{row.label}</td>
+              <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
+                {row.value}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 function VoterDistributionSection({ features, loading }) {
   const [chartView, setChartView] = useState(false)
 
@@ -449,6 +511,10 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
   const statewideCvapSummary = useMemo(
     () => buildStatewideCvapSummary(precinctGeojson?.features ?? []),
     [precinctGeojson?.features],
+  )
+  const selectedDistrictDatasetDetails = useMemo(
+    () => buildSelectedDistrictDatasetDetails(precinctGeojson?.features ?? [], selectedDistrictId),
+    [precinctGeojson?.features, selectedDistrictId],
   )
   const feasibleGroups = getFeasibleGroupKeys(statewideCvapSummary)
   const canShowRepresentationPage = Boolean(selectedDistrictId)
@@ -598,24 +664,32 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
       )}
 
       {effectivePage === 1 && canShowRepresentationPage && (
-        <Card title="Congressional Representation">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setSelectedDistrictId(null)
-                setDetailsPage(0)
-              }}
-            >
-              Exit District Details
-            </Button>
-          </div>
-          <RepresentationTable
-            rows={repRows}
-            selectedDistrictId={selectedDistrictId}
-            onSelectDistrict={setSelectedDistrictId}
-          />
-        </Card>
+        <>
+          <Card title="Congressional Representation">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setSelectedDistrictId(null)
+                  setDetailsPage(0)
+                }}
+              >
+                Exit District Details
+              </Button>
+            </div>
+            <RepresentationTable
+              rows={repRows}
+              selectedDistrictId={selectedDistrictId}
+              onSelectDistrict={setSelectedDistrictId}
+            />
+          </Card>
+
+          {selectedDistrictDatasetDetails && (
+            <Card title="Enacted Plan Metadata">
+              <DistrictDatasetDetailsTable details={selectedDistrictDatasetDetails} />
+            </Card>
+          )}
+        </>
       )}
     </aside>
   )

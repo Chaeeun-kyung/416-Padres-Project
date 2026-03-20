@@ -272,6 +272,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   const showDemLeadOverlay = useAppStore((state) => state.showDemLeadOverlay)
   const showDistrictBoundaries = useAppStore((state) => state.showDistrictBoundaries)
   const activeMetric = useAppStore((state) => state.activeMetric)
+  const precinctDataVariant = useAppStore((state) => state.precinctDataVariant)
   const selectedDistrictId = useAppStore((state) => state.selectedDistrictId)
   const mapResetToken = useAppStore((state) => state.mapResetToken)
   const setSelectedDistrictId = useAppStore((state) => state.setSelectedDistrictId)
@@ -281,6 +282,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   const [stateBounds, setStateBounds] = useState(null)
   const displayMetric = showDemLeadOverlay ? 'pct_dem_lead' : activeMetric
   const hasMetricSelection = Boolean(displayMetric)
+  const datasetBadgeLabel = precinctDataVariant === 'cvap' ? 'Original CVAP' : 'Enacted + CVAP'
 
   useEffect(() => {
     let mounted = true
@@ -293,7 +295,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
       onPrecinctGeojsonLoaded(null)
       try {
         const [precinctData, explicitDistricts] = await Promise.all([
-          loadPrecinctGeoJSON(selectedStateCode),
+          loadPrecinctGeoJSON(selectedStateCode, precinctDataVariant),
           loadDistrictGeoJSON(selectedStateCode),
         ])
         if (!mounted) return
@@ -322,7 +324,7 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     return () => {
       mounted = false
     }
-  }, [onPrecinctGeojsonLoaded, selectedStateCode, setLoadingMapData, setMapError])
+  }, [onPrecinctGeojsonLoaded, precinctDataVariant, selectedStateCode, setLoadingMapData, setMapError])
 
   const metricLookup = useMemo(() => {
     const values = []
@@ -457,7 +459,10 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
       : `${Math.round(Number(metricValue ?? 0) * 100)}%`
     const metricLabel = binResult?.metricLabel ?? displayMetric
     const metricSegment = hasMetricSelection ? ` | ${metricLabel}: ${metricText}` : ''
-    layer.bindTooltip(`GEOID: ${props.GEOID ?? 'N/A'} | Dem: ${props.votes_dem ?? 0} | Rep: ${props.votes_rep ?? 0} | Total: ${props.votes_total ?? 0}${metricSegment}`)
+    const datasetSegment = props?.district_name
+      ? ` | District: ${props.district_name}${props.plan_type ? ` (${props.plan_type})` : ''}`
+      : ` | Dataset: ${datasetBadgeLabel}`
+    layer.bindTooltip(`GEOID: ${props.GEOID ?? 'N/A'} | Dem: ${props.votes_dem ?? 0} | Rep: ${props.votes_rep ?? 0} | Total: ${props.votes_total ?? 0}${metricSegment}${datasetSegment}`)
     layer.on({
       click: (event) => {
         const districtId = findDistrictIdForLatLng(event?.latlng)
@@ -592,6 +597,35 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0f172a', flexShrink: 0 }} />
           <span className="small-text" style={{ fontWeight: 700 }}>Enacted District Plan</span>
           <span className="small-text muted-text">119th Congress</span>
+        </div>
+      )}
+
+      {!loadingMapData && precinctGeojson && (
+        <div
+          className="panel-card"
+          style={{
+            position: 'absolute',
+            left: 10,
+            top: showDistrictBoundaries && districtGeojson ? 56 : 10,
+            zIndex: 500,
+            padding: '5px 10px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            pointerEvents: 'none',
+          }}
+        >
+          <span
+            style={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              background: precinctDataVariant === 'cvap' ? '#64748b' : '#16a34a',
+              flexShrink: 0,
+            }}
+          />
+          <span className="small-text" style={{ fontWeight: 700 }}>Precinct Dataset</span>
+          <span className="small-text muted-text">{datasetBadgeLabel}</span>
         </div>
       )}
 

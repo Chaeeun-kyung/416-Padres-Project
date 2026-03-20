@@ -3,10 +3,12 @@ import { create } from 'zustand'
 const DEFAULT_VIEW = 'splash'
 const DEFAULT_TAB = 'Map'
 const DEFAULT_METRIC = ''
+const DEFAULT_PRECINCT_DATA_VARIANT = 'enacted'
 
 const DEFAULT_STATE_SETTINGS = {
   activeTab: DEFAULT_TAB,
   activeMetric: DEFAULT_METRIC,
+  precinctDataVariant: DEFAULT_PRECINCT_DATA_VARIANT,
   showDistrictBoundaries: true,
   showPrecinctBoundaries: false,
   showDemLeadOverlay: false,
@@ -20,6 +22,7 @@ const useAppStore = create((set) => ({
   selectedStateCode: null,
   activeTab: DEFAULT_TAB,
   activeMetric: DEFAULT_METRIC,
+  precinctDataVariant: DEFAULT_PRECINCT_DATA_VARIANT,
   showDistrictBoundaries: true,
   showPrecinctBoundaries: false,
   showDemLeadOverlay: false,
@@ -40,6 +43,8 @@ const useAppStore = create((set) => ({
       activeMetric: metric,
       showDemLeadOverlay: metric ? false : state.showDemLeadOverlay,
     })),
+  setPrecinctDataVariant: (variant) =>
+    set({ precinctDataVariant: variant === 'cvap' ? 'cvap' : DEFAULT_PRECINCT_DATA_VARIANT }),
   toggleDistrictBoundaries: () =>
     set((state) => ({ showDistrictBoundaries: !state.showDistrictBoundaries })),
   togglePrecinctBoundaries: () =>

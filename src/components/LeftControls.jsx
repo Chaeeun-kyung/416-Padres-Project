@@ -10,6 +10,10 @@ const STATE_OPTIONS = [
   { value: 'CO', label: 'Colorado (CO)' },
   { value: 'AZ', label: 'Arizona (AZ)' },
 ]
+const PRECINCT_DATA_OPTIONS = [
+  { value: 'enacted', label: 'Enacted + CVAP' },
+  { value: 'cvap', label: 'Original CVAP only' },
+]
 const CVAP_TOTAL_FIELD = 'CVAP_TOT24'
 const CVAP_GROUP_FIELDS = {
   white_pct: 'CVAP_WHT24',
@@ -61,11 +65,13 @@ function LeftControls({ precinctGeojson }) {
   const showDistrictBoundaries = useAppStore((state) => state.showDistrictBoundaries)
   const showPrecinctBoundaries = useAppStore((state) => state.showPrecinctBoundaries)
   const showDemLeadOverlay = useAppStore((state) => state.showDemLeadOverlay)
+  const precinctDataVariant = useAppStore((state) => state.precinctDataVariant)
   const toggleDistrictBoundaries = useAppStore((state) => state.toggleDistrictBoundaries)
   const togglePrecinctBoundaries = useAppStore((state) => state.togglePrecinctBoundaries)
   const toggleDemLeadOverlay = useAppStore((state) => state.toggleDemLeadOverlay)
   const activeMetric = useAppStore((state) => state.activeMetric)
   const setActiveMetric = useAppStore((state) => state.setActiveMetric)
+  const setPrecinctDataVariant = useAppStore((state) => state.setPrecinctDataVariant)
   const cvapSummaryForFeasible = useMemo(
     () => buildCvapSummaryForFeasible(precinctGeojson?.features ?? []),
     [precinctGeojson?.features],
@@ -107,6 +113,20 @@ function LeftControls({ precinctGeojson }) {
           onChange={setSelectedStateCode}
           options={STATE_OPTIONS}
         />
+      </Card>
+
+      <Card title="Precinct Dataset" subtitle="- Switch between original and enacted-plan data">
+        <Select
+          ariaLabel="Precinct dataset selector"
+          value={precinctDataVariant}
+          onChange={setPrecinctDataVariant}
+          options={PRECINCT_DATA_OPTIONS}
+        />
+        <div className="small-text muted-text" style={{ marginTop: 8, lineHeight: 1.45 }}>
+          {precinctDataVariant === 'cvap'
+            ? 'Original CVAP only includes precinct voting and demographic data.'
+            : 'Enacted + CVAP also includes enacted congressional district assignment fields.'}
+        </div>
       </Card>
 
       <Card title="Boundaries">
