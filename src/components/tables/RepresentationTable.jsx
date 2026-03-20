@@ -1,3 +1,5 @@
+// District detail table used on the right-side "Congressional Representation" page.
+// Each row is selectable and keeps map + table selection synchronized by district ID.
 function RepresentationTable({ rows, selectedDistrictId, onSelectDistrict }) {
   return (
     <div>
@@ -10,6 +12,7 @@ function RepresentationTable({ rows, selectedDistrictId, onSelectDistrict }) {
             <col style={{ width: '25%' }} />
             <col style={{ width: '18%' }} />
           </colgroup>
+          {/* Fixed column sizes keep the table readable in a narrow sidebar. */}
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--ui-border)' }}>
               <th style={{ padding: 6 }}>District</th>
@@ -25,6 +28,8 @@ function RepresentationTable({ rows, selectedDistrictId, onSelectDistrict }) {
               return (
                 <tr
                   key={row.districtId}
+                  // Toggle behavior:
+                  // clicking the selected row clears it; otherwise selects new district.
                   onClick={() => onSelectDistrict(selected ? null : row.districtId)}
                   style={{
                     borderBottom: '1px solid var(--ui-border)',

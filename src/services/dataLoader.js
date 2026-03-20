@@ -2,6 +2,8 @@ const precinctCache = new Map()
 const districtCache = new Map()
 const PRECINCT_DATA_VARIANT = (import.meta.env.VITE_PRECINCT_DATA_VARIANT ?? 'enacted').toLowerCase()
 
+// Normalizes vote fields so downstream UI can treat them as numbers.
+// This avoids repeated Number(...) calls in chart/table components.
 function normalizeFeature(feature) {
   const props = feature?.properties ?? {}
   return {
@@ -15,7 +17,13 @@ function normalizeFeature(feature) {
   }
 }
 
+<<<<<<< HEAD
 export async function loadPrecinctGeoJSON(stateCode, precinctDataVariant = PRECINCT_DATA_VARIANT) {
+=======
+// Loads precinct GeoJSON for the selected state and caches it in memory.
+// Current app convention is to always use the CVAP-enriched precinct file.
+export async function loadPrecinctGeoJSON(stateCode) {
+>>>>>>> origin/main
   if (!stateCode) return null
   const normalizedVariant = String(precinctDataVariant ?? PRECINCT_DATA_VARIANT).toLowerCase() === 'cvap'
     ? 'cvap'
@@ -52,6 +60,8 @@ export async function loadPrecinctGeoJSON(stateCode, precinctDataVariant = PRECI
   return geojson
 }
 
+// Loads district boundary GeoJSON for the selected state and caches it.
+// Returns null if district files are missing or malformed so map can degrade gracefully.
 export async function loadDistrictGeoJSON(stateCode) {
   if (!stateCode) return null
   if (districtCache.has(stateCode)) {
@@ -74,6 +84,8 @@ export async function loadDistrictGeoJSON(stateCode) {
   }
 }
 
+// Computes a bounding box from arbitrary GeoJSON feature coordinates.
+// Output format matches Leaflet fitBounds input: [[minLat, minLng], [maxLat, maxLng]].
 export function deriveStateBounds(features) {
   let minLat = Infinity
   let minLng = Infinity

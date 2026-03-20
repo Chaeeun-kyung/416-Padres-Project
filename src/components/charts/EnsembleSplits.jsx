@@ -4,36 +4,59 @@ import ensembleSplits from '../../data/mock/ensembleSplits.json'
 import { STATE_META } from '../../data/stateMeta'
 import Info from '../../ui/components/Info'
 
+// Returns split-frequency data for the selected state from mock ensemble results.
+function getStateSplitData(stateCode) {
+  return ensembleSplits?.[stateCode]
+}
+
+// Reads district count metadata used to compute the D side of "R/D" labels.
+function getDistrictCount(stateCode) {
+  return STATE_META[stateCode]?.districtCount ?? 0
+}
+
+// Converts split rows into a Map for O(1) frequency lookup by Republican wins.
+function toSplitMap(rows) {
+  const safeRows = Array.isArray(rows) ? rows : []
+  return new Map(safeRows.map((row) => [Number(row.repWins), Number(row.freq)]))
+}
+
+// Builds aligned chart rows so race-blind and VRA-constrained bars share the same x-axis.
+// Missing frequencies are treated as 0, and empty bins for both series are dropped.
+function buildSplitRows(stateData, districtCount) {
+  if (!stateData || !districtCount) return []
+
+  const raceBlindMap = toSplitMap(stateData.raceBlind)
+  const vraMap = toSplitMap(stateData.vraConstrained)
+  const allRepWinKeys = [...raceBlindMap.keys(), ...vraMap.keys()]
+  if (!allRepWinKeys.length) return []
+
+  const minRepWins = Math.min(...allRepWinKeys)
+  const maxRepWins = Math.max(...allRepWinKeys)
+  const rows = []
+
+  for (let repWins = minRepWins; repWins <= maxRepWins; repWins += 1) {
+    const raceBlind = raceBlindMap.get(repWins) ?? 0
+    const vraConstrained = vraMap.get(repWins) ?? 0
+    if (raceBlind === 0 && vraConstrained === 0) continue
+
+    const demWins = districtCount - repWins
+    rows.push({
+      split: `${repWins}R / ${demWins}D`,
+      raceBlind,
+      vraConstrained,
+    })
+  }
+
+  return rows
+}
+
+// Main ensemble split chart component (GUI-16 style split comparison display).
 function EnsembleSplits({ stateCode }) {
-  const stateData = ensembleSplits?.[stateCode]
-  const districtCount = STATE_META[stateCode]?.districtCount ?? 0
+  const stateData = getStateSplitData(stateCode)
+  const districtCount = getDistrictCount(stateCode)
 
-  const data = useMemo(() => {
-    if (!stateData || !districtCount) return []
-
-    const raceBlindMap = new Map((stateData.raceBlind ?? []).map((row) => [Number(row.repWins), Number(row.freq)]))
-    const vraMap = new Map((stateData.vraConstrained ?? []).map((row) => [Number(row.repWins), Number(row.freq)]))
-    const allKeys = [...raceBlindMap.keys(), ...vraMap.keys()]
-    if (!allKeys.length) return []
-
-    const minRepWins = Math.min(...allKeys)
-    const maxRepWins = Math.max(...allKeys)
-    const rows = []
-
-    for (let repWins = minRepWins; repWins <= maxRepWins; repWins += 1) {
-      const raceBlind = raceBlindMap.get(repWins) ?? 0
-      const vraConstrained = vraMap.get(repWins) ?? 0
-      if (raceBlind === 0 && vraConstrained === 0) continue
-      const demWins = districtCount - repWins
-      rows.push({
-        split: `${repWins}R / ${demWins}D`,
-        raceBlind,
-        vraConstrained,
-      })
-    }
-
-    return rows
-  }, [districtCount, stateData])
+  // Memoize derived chart data so it only recomputes when inputs actually change.
+  const data = useMemo(() => buildSplitRows(stateData, districtCount), [districtCount, stateData])
 
   if (!data.length) {
     return <div className="small-text muted-text">No ensemble split data available.</div>

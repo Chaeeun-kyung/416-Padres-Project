@@ -18,6 +18,9 @@ const DEMOGRAPHIC_FIELD_CANDIDATES = {
   asian_pct: ['PCT_CVAP_ASI'],
 }
 
+// Normalizes percentage values into 0..1 range:
+// - keeps decimal fractions (0.42)
+// - converts whole percentages (42 -> 0.42)
 function normalizePct(value) {
   if (!Number.isFinite(value)) return null
   if (value >= 0 && value <= 1) return value
@@ -25,6 +28,8 @@ function normalizePct(value) {
   return null
 }
 
+// Resolves the active metric from feature properties.
+// Supports both demographic heatmap metrics and Dem lead overlay metric.
 function resolveMetricValue(properties, metricKey) {
   if (!metricKey) {
     return null
@@ -46,6 +51,7 @@ function resolveMetricValue(properties, metricKey) {
   return null
 }
 
+// Converts district-like identifiers to canonical 2-digit code strings ("1" -> "01").
 function normalizeDistrictCode(rawCode) {
   if (rawCode === null || rawCode === undefined) return null
   const digits = String(rawCode).match(/\d+/)?.[0]
@@ -53,6 +59,7 @@ function normalizeDistrictCode(rawCode) {
   return digits.padStart(2, '0')
 }
 
+// Builds canonical district IDs used by map + table selection ("CO-01", "AZ-08", ...).
 function getDistrictIdForFeature(featureProperties, stateCode) {
   if (!featureProperties || !stateCode) return null
   const directCode =
@@ -97,6 +104,7 @@ function getDistrictColor(districtId) {
   return DISTRICT_FILL_PALETTE[paletteIndex]
 }
 
+// Core point-in-polygon utilities used to map precinct clicks to district geometry.
 function pointInRing(point, ring) {
   if (!Array.isArray(ring) || ring.length < 3) return false
   const [x, y] = point
@@ -133,6 +141,8 @@ function pointInGeometry(point, geometry) {
   return false
 }
 
+// Defensive helpers used when exact centroid checks fail.
+// We try first-point and bounds-center fallbacks for robust district matching.
 function getGeometryFirstPoint(geometry) {
   const coords = geometry?.coordinates
   if (!Array.isArray(coords)) return null
@@ -184,6 +194,7 @@ function getGeometryBoundsCenter(geometry) {
   return [(minLng + maxLng) / 2, (minLat + maxLat) / 2]
 }
 
+// Applies fitBounds when state data changes.
 function BoundsController({ bounds }) {
   const map = useMap()
 
@@ -196,6 +207,7 @@ function BoundsController({ bounds }) {
   return null
 }
 
+// Forces Leaflet to recalc canvas size when container dimensions change.
 function MapResizeSync() {
   const map = useMap()
 
@@ -267,6 +279,10 @@ function ChoroplethLegend({ binResult }) {
   )
 }
 
+// Main map renderer:
+// - loads precinct/district GeoJSON for selected state
+// - computes metric bins/colors
+// - renders map layers and handles district selection interactions
 function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapData, setMapError, loadingMapData }) {
   const showPrecinctBoundaries = useAppStore((state) => state.showPrecinctBoundaries)
   const showDemLeadOverlay = useAppStore((state) => state.showDemLeadOverlay)

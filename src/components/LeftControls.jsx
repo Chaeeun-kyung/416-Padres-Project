@@ -1,6 +1,4 @@
-import { useEffect, useMemo } from 'react'
-import metricConfig from '../data/mock/metricConfig.json'
-import { buildGroupOptions } from '../data/racialGroupConfig'
+import { useEffect } from 'react'
 import useAppStore from '../store/useAppStore'
 import Card from '../ui/components/Card'
 import Select from '../ui/components/Select'
@@ -10,6 +8,7 @@ const STATE_OPTIONS = [
   { value: 'CO', label: 'Colorado (CO)' },
   { value: 'AZ', label: 'Arizona (AZ)' },
 ]
+<<<<<<< HEAD
 const PRECINCT_DATA_OPTIONS = [
   { value: 'enacted', label: 'Enacted + CVAP' },
   { value: 'cvap', label: 'Original CVAP only' },
@@ -25,41 +24,28 @@ const DEMOGRAPHIC_METRICS = metricConfig.filter((metric) => metric.key !== 'pct_
 const DEMOGRAPHIC_METRIC_LABELS = Object.fromEntries(
   DEMOGRAPHIC_METRICS.map((metric) => [metric.key, metric.label]),
 )
+=======
+const HEATMAP_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'latino_pct', label: 'Latino Population %' },
+]
+>>>>>>> origin/main
 
-function buildCvapSummaryForFeasible(features) {
-  if (!Array.isArray(features) || !features.length) return null
-
-  let totalCvap = 0
-  let hasTotalCvap = false
-  const groupTotals = Object.fromEntries(Object.keys(CVAP_GROUP_FIELDS).map((groupKey) => [groupKey, 0]))
-
-  ;(features ?? []).forEach((feature) => {
-    const props = feature?.properties ?? {}
-    const total = Number(props[CVAP_TOTAL_FIELD])
-    if (Number.isFinite(total)) {
-      totalCvap += total
-      hasTotalCvap = true
-    }
-
-    Object.entries(CVAP_GROUP_FIELDS).forEach(([groupKey, fieldName]) => {
-      const value = Number(props[fieldName])
-      if (Number.isFinite(value)) {
-        groupTotals[groupKey] += value
-      }
-    })
-  })
-
-  if (!hasTotalCvap || totalCvap <= 0) return null
-
-  const racialEthnicPopulationMillions = {}
-  Object.keys(CVAP_GROUP_FIELDS).forEach((groupKey) => {
-    racialEthnicPopulationMillions[groupKey] = groupTotals[groupKey] / 1000000
-  })
-
-  return { racialEthnicPopulationMillions }
+// Guards against stale selections after state/data changes.
+// If selected metric is no longer available, fall back to None.
+function getEffectiveMetric(metricOptions, activeMetric) {
+  const activeMetricExists = metricOptions.some((option) => option.value === activeMetric)
+  if (activeMetricExists) return activeMetric
+  return ''
 }
 
-function LeftControls({ precinctGeojson }) {
+// Left sidebar control panel.
+// Responsibilities:
+// 1) State selection
+// 2) Layer visibility toggles
+// 3) Demographic heatmap group selection
+// 4) Context guidance for district table interaction
+function LeftControls() {
   const selectedStateCode = useAppStore((state) => state.selectedStateCode)
   const setSelectedStateCode = useAppStore((state) => state.setSelectedStateCode)
   const showDistrictBoundaries = useAppStore((state) => state.showDistrictBoundaries)
@@ -71,6 +57,7 @@ function LeftControls({ precinctGeojson }) {
   const toggleDemLeadOverlay = useAppStore((state) => state.toggleDemLeadOverlay)
   const activeMetric = useAppStore((state) => state.activeMetric)
   const setActiveMetric = useAppStore((state) => state.setActiveMetric)
+<<<<<<< HEAD
   const setPrecinctDataVariant = useAppStore((state) => state.setPrecinctDataVariant)
   const cvapSummaryForFeasible = useMemo(
     () => buildCvapSummaryForFeasible(precinctGeojson?.features ?? []),
@@ -93,11 +80,13 @@ function LeftControls({ precinctGeojson }) {
     () => [{ value: '', label: 'None' }, ...feasibleDemographicOptions],
     [feasibleDemographicOptions],
   )
+=======
+  const metricOptions = HEATMAP_OPTIONS
+>>>>>>> origin/main
   const firstAvailableMetric = metricOptions.find((option) => option.value)?.value ?? ''
-  const effectiveMetric = metricOptions.some((option) => option.value === activeMetric)
-    ? activeMetric
-    : ''
+  const effectiveMetric = getEffectiveMetric(metricOptions, activeMetric)
 
+  // If selected metric disappears after a state/data change, auto-correct it.
   useEffect(() => {
     if (activeMetric && !metricOptions.some((option) => option.value === activeMetric)) {
       setActiveMetric(firstAvailableMetric)

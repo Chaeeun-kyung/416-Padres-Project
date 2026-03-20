@@ -3,12 +3,17 @@ import useAppStore from '../store/useAppStore'
 import SplashHero from './splash/SplashHero'
 import USMapBackground from './splash/USMapBackground'
 
+// Landing screen controller:
+// - accepts a state selection from either the hero selector or map click
+// - plays a short exit animation
+// - then switches global app state into dashboard mode for that state
 function SplashView() {
   const setSelectedStateCode = useAppStore((state) => state.setSelectedStateCode)
   const [isExiting, setIsExiting] = useState(false)
   const [selectedStateCode, setSelectedStateCodeLocal] = useState(null)
   const exitTimerRef = useRef(null)
 
+  // Prevents timer leaks if user navigates away during animation.
   useEffect(() => {
     return () => {
       if (exitTimerRef.current) {
@@ -17,6 +22,8 @@ function SplashView() {
     }
   }, [])
 
+  // Handles all state-entry paths (hero dropdown + map click).
+  // We delay setting global selectedStateCode so the fade transition is visible.
   function handleStateSelect(stateCode) {
     if (isExiting) return
     setSelectedStateCodeLocal(stateCode)
