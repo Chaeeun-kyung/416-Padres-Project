@@ -4,12 +4,14 @@ import { create } from 'zustand'
 const DEFAULT_VIEW = 'splash'
 const DEFAULT_TAB = 'Map'
 const DEFAULT_METRIC = ''
+const DEFAULT_PRECINCT_DATA_VARIANT = 'enacted'
 
 // Dashboard-scoped defaults reused when switching states and when resetting
 // the state dashboard without leaving the app.
 const DEFAULT_STATE_SETTINGS = {
   activeTab: DEFAULT_TAB,
   activeMetric: DEFAULT_METRIC,
+  precinctDataVariant: DEFAULT_PRECINCT_DATA_VARIANT,
   showDistrictBoundaries: true,
   showPrecinctBoundaries: false,
   showDemLeadOverlay: false,
@@ -22,6 +24,7 @@ const useAppStore = create((set) => ({
   selectedStateCode: null,
   activeTab: DEFAULT_TAB,
   activeMetric: DEFAULT_METRIC,
+  precinctDataVariant: DEFAULT_PRECINCT_DATA_VARIANT,
   showDistrictBoundaries: true,
   showPrecinctBoundaries: false,
   showDemLeadOverlay: false,
@@ -47,7 +50,12 @@ const useAppStore = create((set) => ({
       activeMetric: metric,
       showDemLeadOverlay: metric ? false : state.showDemLeadOverlay,
     })),
+<<<<<<< HEAD
+  setPrecinctDataVariant: (variant) =>
+    set({ precinctDataVariant: variant === 'cvap' ? 'cvap' : DEFAULT_PRECINCT_DATA_VARIANT }),
+=======
   // Map layer toggles.
+>>>>>>> origin/main
   toggleDistrictBoundaries: () =>
     set((state) => ({ showDistrictBoundaries: !state.showDistrictBoundaries })),
   togglePrecinctBoundaries: () =>

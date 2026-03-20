@@ -1,5 +1,6 @@
 const precinctCache = new Map()
 const districtCache = new Map()
+const PRECINCT_DATA_VARIANT = (import.meta.env.VITE_PRECINCT_DATA_VARIANT ?? 'enacted').toLowerCase()
 
 // Normalizes vote fields so downstream UI can treat them as numbers.
 // This avoids repeated Number(...) calls in chart/table components.
@@ -16,22 +17,46 @@ function normalizeFeature(feature) {
   }
 }
 
+<<<<<<< HEAD
+export async function loadPrecinctGeoJSON(stateCode, precinctDataVariant = PRECINCT_DATA_VARIANT) {
+=======
 // Loads precinct GeoJSON for the selected state and caches it in memory.
 // Current app convention is to always use the CVAP-enriched precinct file.
 export async function loadPrecinctGeoJSON(stateCode) {
+>>>>>>> origin/main
   if (!stateCode) return null
-  if (precinctCache.has(stateCode)) {
-    return precinctCache.get(stateCode)
+  const normalizedVariant = String(precinctDataVariant ?? PRECINCT_DATA_VARIANT).toLowerCase() === 'cvap'
+    ? 'cvap'
+    : 'enacted'
+  const cacheKey = `${stateCode}:${normalizedVariant}`
+
+  if (precinctCache.has(cacheKey)) {
+    return precinctCache.get(cacheKey)
   }
 
-  const response = await fetch(`/geojson/${stateCode}-precincts-with-results-cvap.geojson`, { cache: 'no-store' })
-  if (!response.ok) {
+  const defaultPath = `/geojson/${stateCode}-precincts-with-results-cvap.geojson`
+  const enactedPath = `/geojson/${stateCode}-precincts-with-results-cvap-with-enacted-districts.geojson`
+  const candidatePaths =
+    normalizedVariant === 'cvap'
+      ? [defaultPath, enactedPath]
+      : [enactedPath, defaultPath]
+
+  let response = null
+  for (const path of candidatePaths) {
+    const nextResponse = await fetch(path, { cache: 'no-store' })
+    if (nextResponse.ok) {
+      response = nextResponse
+      break
+    }
+  }
+
+  if (!response) {
     throw new Error(`Failed to load CVAP precinct GeoJSON for ${stateCode}`)
   }
 
   const geojson = await response.json()
   geojson.features = (geojson.features ?? []).map(normalizeFeature)
-  precinctCache.set(stateCode, geojson)
+  precinctCache.set(cacheKey, geojson)
   return geojson
 }
 

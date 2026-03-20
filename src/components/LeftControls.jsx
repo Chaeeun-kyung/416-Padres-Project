@@ -8,10 +8,28 @@ const STATE_OPTIONS = [
   { value: 'CO', label: 'Colorado (CO)' },
   { value: 'AZ', label: 'Arizona (AZ)' },
 ]
+<<<<<<< HEAD
+const PRECINCT_DATA_OPTIONS = [
+  { value: 'enacted', label: 'Enacted + CVAP' },
+  { value: 'cvap', label: 'Original CVAP only' },
+]
+const CVAP_TOTAL_FIELD = 'CVAP_TOT24'
+const CVAP_GROUP_FIELDS = {
+  white_pct: 'CVAP_WHT24',
+  black_pct: 'CVAP_BLA24',
+  latino_pct: 'CVAP_HSP24',
+  asian_pct: 'CVAP_ASI24',
+}
+const DEMOGRAPHIC_METRICS = metricConfig.filter((metric) => metric.key !== 'pct_dem_lead')
+const DEMOGRAPHIC_METRIC_LABELS = Object.fromEntries(
+  DEMOGRAPHIC_METRICS.map((metric) => [metric.key, metric.label]),
+)
+=======
 const HEATMAP_OPTIONS = [
   { value: '', label: 'None' },
   { value: 'latino_pct', label: 'Latino Population %' },
 ]
+>>>>>>> origin/main
 
 // Guards against stale selections after state/data changes.
 // If selected metric is no longer available, fall back to None.
@@ -33,12 +51,38 @@ function LeftControls() {
   const showDistrictBoundaries = useAppStore((state) => state.showDistrictBoundaries)
   const showPrecinctBoundaries = useAppStore((state) => state.showPrecinctBoundaries)
   const showDemLeadOverlay = useAppStore((state) => state.showDemLeadOverlay)
+  const precinctDataVariant = useAppStore((state) => state.precinctDataVariant)
   const toggleDistrictBoundaries = useAppStore((state) => state.toggleDistrictBoundaries)
   const togglePrecinctBoundaries = useAppStore((state) => state.togglePrecinctBoundaries)
   const toggleDemLeadOverlay = useAppStore((state) => state.toggleDemLeadOverlay)
   const activeMetric = useAppStore((state) => state.activeMetric)
   const setActiveMetric = useAppStore((state) => state.setActiveMetric)
+<<<<<<< HEAD
+  const setPrecinctDataVariant = useAppStore((state) => state.setPrecinctDataVariant)
+  const cvapSummaryForFeasible = useMemo(
+    () => buildCvapSummaryForFeasible(precinctGeojson?.features ?? []),
+    [precinctGeojson?.features],
+  )
+
+  const feasibleDemographicOptions = useMemo(
+    () => buildGroupOptions(
+      DEMOGRAPHIC_METRICS.map((metric) => metric.key),
+      cvapSummaryForFeasible,
+      DEMOGRAPHIC_METRIC_LABELS,
+      {
+        includeOnlyFeasible: Boolean(cvapSummaryForFeasible),
+        includeOnlyMinorities: true,
+      },
+    ),
+    [cvapSummaryForFeasible],
+  )
+  const metricOptions = useMemo(
+    () => [{ value: '', label: 'None' }, ...feasibleDemographicOptions],
+    [feasibleDemographicOptions],
+  )
+=======
   const metricOptions = HEATMAP_OPTIONS
+>>>>>>> origin/main
   const firstAvailableMetric = metricOptions.find((option) => option.value)?.value ?? ''
   const effectiveMetric = getEffectiveMetric(metricOptions, activeMetric)
 
@@ -58,6 +102,20 @@ function LeftControls() {
           onChange={setSelectedStateCode}
           options={STATE_OPTIONS}
         />
+      </Card>
+
+      <Card title="Precinct Dataset" subtitle="- Switch between original and enacted-plan data">
+        <Select
+          ariaLabel="Precinct dataset selector"
+          value={precinctDataVariant}
+          onChange={setPrecinctDataVariant}
+          options={PRECINCT_DATA_OPTIONS}
+        />
+        <div className="small-text muted-text" style={{ marginTop: 8, lineHeight: 1.45 }}>
+          {precinctDataVariant === 'cvap'
+            ? 'Original CVAP only includes precinct voting and demographic data.'
+            : 'Enacted + CVAP also includes enacted congressional district assignment fields.'}
+        </div>
       </Card>
 
       <Card title="Boundaries">
