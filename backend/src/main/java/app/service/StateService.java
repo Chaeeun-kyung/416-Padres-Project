@@ -8,6 +8,7 @@ import app.dto.CongressionalPartySummaryResponse;
 import app.dto.EnsembleSummaryResponse;
 import app.dto.StateSummaryResponse;
 import app.dto.VoterDistributionResponse;
+import app.exception.BadRequestException;
 import app.exception.ResourceNotFoundException;
 import app.repository.StateSummaryRepository;
 import org.springframework.stereotype.Service;
@@ -74,7 +75,7 @@ public class StateService {
 
   private String normalizeStateCode(String stateCode) {
     if (stateCode == null || stateCode.isBlank()) {
-      throw new ResourceNotFoundException("State code is required");
+      throw new BadRequestException("State code is required");
     }
     return stateCode.trim().toUpperCase();
   }

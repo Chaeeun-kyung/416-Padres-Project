@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import axios from 'axios'
 import useAppStore from '../store/useAppStore'
 import Card from '../ui/components/Card'
 import Select from '../ui/components/Select'
 import ToggleSwitch from '../ui/components/ToggleSwitch'
 import metricConfig from '../data/mock/metricConfig.json'
+import { fetchStateSummary } from '../services/summaryApi'
 
 const STATE_OPTIONS = [
   { value: 'CO', label: 'Colorado (CO)' },
   { value: 'AZ', label: 'Arizona (AZ)' },
 ]
 const PRECINCT_DATA_OPTIONS = [
-  { value: 'enacted', label: 'Enacted + CVAP' },
-  { value: 'cvap', label: 'Original CVAP only' },
+  { value: 'enacted', label: 'Enacted Plan' },
 ]
 const FEASIBLE_GROUP_MIN_MILLIONS = 0.4
 const FEASIBLE_GROUP_KEYS = ['white_pct', 'latino_pct']
@@ -65,15 +64,16 @@ function LeftControls() {
       }
 
       try {
-        const response = await axios.get(`/api/states/${selectedStateCode}/summary`)
-        const millions = response.data?.racialEthnicPopulationMillions ?? {}
+        const summary = await fetchStateSummary(selectedStateCode)
+        const millions = summary?.racialEthnicPopulationMillions ?? {}
         const nextKeys = FEASIBLE_GROUP_KEYS.filter((key) => Number(millions[key]) > FEASIBLE_GROUP_MIN_MILLIONS)
         if (!cancelled) {
-          setFeasibleGroupKeys(nextKeys.length > 0 ? nextKeys : FEASIBLE_GROUP_KEYS)
+          // Enforce feasible-only options.
+          setFeasibleGroupKeys(nextKeys)
         }
       } catch {
         if (!cancelled) {
-          setFeasibleGroupKeys(FEASIBLE_GROUP_KEYS)
+          setFeasibleGroupKeys([])
         }
       }
     }
@@ -103,20 +103,6 @@ function LeftControls() {
         />
       </Card>
 
-      <Card title="Precinct Dataset" subtitle="- Switch between original and enacted-plan data">
-        <Select
-          ariaLabel="Precinct dataset selector"
-          value={precinctDataVariant}
-          onChange={setPrecinctDataVariant}
-          options={PRECINCT_DATA_OPTIONS}
-        />
-        <div className="small-text muted-text" style={{ marginTop: 8, lineHeight: 1.45 }}>
-          {precinctDataVariant === 'cvap'
-            ? 'Original CVAP only includes precinct voting and demographic data.'
-            : 'Enacted + CVAP also includes enacted congressional district assignment fields.'}
-        </div>
-      </Card>
-
       <Card title="Boundaries">
         <div className="control-row">
           <span className="small-text">District boundaries</span>
@@ -144,6 +130,18 @@ function LeftControls() {
       <Card title="Congressional Representation">
         <div className="small-text muted-text">
           - Click a district to view details in the table on the right.
+        </div>
+      </Card>
+
+      <Card title="Plan Selection" subtitle="- Choose which district plan to display">
+        <Select
+          ariaLabel="Plan selector"
+          value={precinctDataVariant}
+          onChange={setPrecinctDataVariant}
+          options={PRECINCT_DATA_OPTIONS}
+        />
+        <div className="small-text muted-text" style={{ marginTop: 8, lineHeight: 1.45 }}>
+          Currently available: Enacted Plan (default).
         </div>
       </Card>
     </aside>

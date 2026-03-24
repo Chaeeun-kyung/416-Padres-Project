@@ -615,35 +615,6 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
         </div>
       )}
 
-      {!loadingMapData && precinctGeojson && (
-        <div
-          className="panel-card"
-          style={{
-            position: 'absolute',
-            left: 10,
-            top: showDistrictBoundaries && districtGeojson ? 56 : 10,
-            zIndex: 500,
-            padding: '5px 10px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            pointerEvents: 'none',
-          }}
-        >
-          <span
-            style={{
-              width: 8,
-              height: 8,
-              borderRadius: '50%',
-              background: precinctDataVariant === 'cvap' ? '#64748b' : '#16a34a',
-              flexShrink: 0,
-            }}
-          />
-          <span className="small-text" style={{ fontWeight: 700 }}>Precinct Dataset</span>
-          <span className="small-text muted-text">{datasetBadgeLabel}</span>
-        </div>
-      )}
-
       {/* Loading overlay */}
       {loadingMapData && (
         <div

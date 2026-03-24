@@ -304,6 +304,37 @@
           "response": []
         },
         {
+          "name": "Get State Summary - Blank State Code (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400 for blank state code', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Bad request payload explains missing state code', function () {",
+                  "    pm.expect(body.status).to.eql(400);",
+                  "    pm.expect(body.error).to.eql('Bad Request');",
+                  "    pm.expect(body.message).to.include('State code is required');",
+                  "    pm.expect(body.path).to.include('/api/states/');",
+                  "    pm.expect(body.path).to.include('/summary');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/%20/summary"
+          },
+          "response": []
+        },
+        {
           "name": "Get Gingles Analysis - Bad Group (400)",
           "event": [
             {

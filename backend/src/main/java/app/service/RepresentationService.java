@@ -3,6 +3,7 @@ package app.service;
 import app.domain.DistrictRepresentationDocument;
 import app.dto.DistrictRepresentationListResponse;
 import app.dto.DistrictRepresentationRowResponse;
+import app.exception.BadRequestException;
 import app.exception.ResourceNotFoundException;
 import app.repository.DistrictRepresentationRepository;
 import java.util.List;
@@ -39,7 +40,7 @@ public class RepresentationService {
 
   private String normalizeStateCode(String stateCode) {
     if (stateCode == null || stateCode.isBlank()) {
-      throw new ResourceNotFoundException("State code is required");
+      throw new BadRequestException("State code is required");
     }
     return stateCode.trim().toUpperCase();
   }

@@ -11,6 +11,7 @@ import EnsembleSplits from './charts/EnsembleSplits'
 import GinglesScatter from './charts/GinglesScatter'
 import EICurve from './charts/EICurve'
 import EnsembleBoxplot from './charts/EnsembleBoxplot'
+import { fetchStateSummary } from '../services/summaryApi'
 
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
@@ -651,9 +652,8 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
 
       setSummaryLoading(true)
       try {
-        // Ask Spring for the selected state's summary and render the response directly.
-        const response = await axios.get(`/api/states/${selectedStateCode}/summary`)
-        const nextSummary = response.data
+        // Reuse cached state summary requests so left/right panel don't duplicate network calls.
+        const nextSummary = await fetchStateSummary(selectedStateCode)
         if (!cancelled) {
           setSummary(nextSummary)
         }
