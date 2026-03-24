@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import representationRows from '../data/representation.json'
 import useAppStore from '../store/useAppStore'
 import Button from '../ui/components/Button'
 import Card from '../ui/components/Card'
@@ -16,14 +15,6 @@ import EnsembleBoxplot from './charts/EnsembleBoxplot'
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
 const RACIAL_BAR_COLORS = ['#0f766e', '#14b8a6', '#06b6d4']
-
-const CVAP_TOTAL_FIELD = 'CVAP_TOT24'
-const CVAP_GROUP_FIELDS = {
-  white_pct: 'CVAP_WHT24',
-  black_pct: 'CVAP_BLA24',
-  latino_pct: 'CVAP_HSP24',
-  asian_pct: 'CVAP_ASI24',
-}
 
 const DISPLAY_RACIAL_GROUPS = [
   { key: 'white_pct', label: 'White' },
@@ -50,59 +41,6 @@ function formatWholeNumber(value) {
     return 'N/A'
   }
   return Math.round(value).toLocaleString()
-}
-
-// Build statewide totals directly from precinct CVAP properties.
-function buildStatewideCvapSummary(features) {
-  if (!Array.isArray(features) || features.length === 0) {
-    return null
-  }
-
-  let totalCvap = 0
-  let hasTotalCvap = false
-  const groupTotals = {}
-
-  for (const groupKey of Object.keys(CVAP_GROUP_FIELDS)) {
-    groupTotals[groupKey] = 0
-  }
-
-  for (const feature of features) {
-    const props = feature?.properties ?? {}
-    const total = Number(props[CVAP_TOTAL_FIELD])
-
-    if (Number.isFinite(total)) {
-      totalCvap += total
-      hasTotalCvap = true
-    }
-
-    for (const [groupKey, fieldName] of Object.entries(CVAP_GROUP_FIELDS)) {
-      const value = Number(props[fieldName])
-      if (Number.isFinite(value)) {
-        groupTotals[groupKey] += value
-      }
-    }
-  }
-
-  if (!hasTotalCvap || totalCvap <= 0) {
-    return null
-  }
-
-  const racialEthnicPopulationPct = {}
-  const racialEthnicPopulationMillions = {}
-
-  for (const groupKey of Object.keys(CVAP_GROUP_FIELDS)) {
-    const total = groupTotals[groupKey]
-    if (!Number.isFinite(total)) continue
-
-    racialEthnicPopulationPct[groupKey] = (total / totalCvap) * 100
-    racialEthnicPopulationMillions[groupKey] = total / 1000000
-  }
-
-  return {
-    votingAgePopulation: totalCvap,
-    racialEthnicPopulationPct,
-    racialEthnicPopulationMillions,
-  }
 }
 
 function normalizeDistrictNumber(rawValue) {
@@ -310,7 +248,7 @@ function RacialGroupsSection({ summary, loading }) {
 
       {loading && rows.length === 0 && (
         <div className="small-text muted-text" style={{ marginBottom: 8 }}>
-          Loading statewide racial group summary from precinct CVAP GeoJSON...
+          Loading statewide racial group summary from the backend...
         </div>
       )}
 
@@ -369,12 +307,12 @@ function RacialGroupsSection({ summary, loading }) {
   )
 }
 
-// Placeholder ensemble summary block for GUI review requirements.
-function EnsembleSummaryTable() {
+// Summary table for ensemble counts and population-equality metadata.
+function EnsembleSummaryTable({ summary }) {
   const rows = [
-    { label: 'Race-blind plans', value: '5,000' },
-    { label: 'VRA-constrained plans', value: '5,000' },
-    { label: 'Population Equality Threshold', value: '+/-1%' },
+    { label: 'Race-blind plans', value: summary?.ensembleSummary?.raceBlindPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.raceBlindPlans ?? 'N/A' },
+    { label: 'VRA-constrained plans', value: summary?.ensembleSummary?.vraConstrainedPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.vraConstrainedPlans ?? 'N/A' },
+    { label: 'Population Equality Threshold', value: summary?.ensembleSummary?.populationEqualityThresholdLabel ?? 'N/A' },
   ]
 
   return (
@@ -399,7 +337,6 @@ function EnsembleSummaryTable() {
   )
 }
 
-<<<<<<< HEAD
 function DistrictDatasetDetailsTable({ details }) {
   const rows = [
     { label: 'District Name', value: details?.districtName ?? 'N/A' },
@@ -431,41 +368,40 @@ function DistrictDatasetDetailsTable({ details }) {
     </div>
   )
 }
-
-=======
-// Computes statewide vote totals from precinct features and displays table/chart.
->>>>>>> origin/main
-function VoterDistributionSection({ features, loading }) {
+function VoterDistributionSection({ summary, loading }) {
   const [chartView, setChartView] = useState(false)
 
   const { tableRows, totalVotes } = useMemo(() => {
-    let demVotes = 0
-    let repVotes = 0
-    let allVotes = 0
+    const demVotes = Number(summary?.voterDistribution?.demVotes)
+    const repVotes = Number(summary?.voterDistribution?.repVotes)
+    const allVotes = Number(summary?.voterDistribution?.totalVotes)
+    const demPct = Number(summary?.voterDistribution?.demPct)
+    const repPct = Number(summary?.voterDistribution?.repPct)
 
-    for (const feature of features ?? []) {
-      const props = feature?.properties ?? {}
-      const dem = Number(props.votes_dem ?? 0)
-      const rep = Number(props.votes_rep ?? 0)
-      const total = Number(props.votes_total ?? 0)
-
-      demVotes += Number.isFinite(dem) ? dem : 0
-      repVotes += Number.isFinite(rep) ? rep : 0
-      allVotes += Number.isFinite(total) ? total : 0
-    }
-
-    if (allVotes <= 0) {
+    if (!Number.isFinite(demVotes) || !Number.isFinite(repVotes) || !Number.isFinite(allVotes) || allVotes <= 0) {
       return { tableRows: [], totalVotes: 0 }
     }
 
     return {
       totalVotes: allVotes,
       tableRows: [
-        { party: 'Democratic', shortParty: 'Dem', votes: demVotes, share: (demVotes / allVotes) * 100, color: DEM_COLOR },
-        { party: 'Republican', shortParty: 'Rep', votes: repVotes, share: (repVotes / allVotes) * 100, color: REP_COLOR },
+        {
+          party: 'Democratic',
+          shortParty: 'Dem',
+          votes: demVotes,
+          share: Number.isFinite(demPct) ? demPct : (demVotes / allVotes) * 100,
+          color: DEM_COLOR,
+        },
+        {
+          party: 'Republican',
+          shortParty: 'Rep',
+          votes: repVotes,
+          share: Number.isFinite(repPct) ? repPct : (repVotes / allVotes) * 100,
+          color: REP_COLOR,
+        },
       ],
     }
-  }, [features])
+  }, [summary])
 
   const chartRows = useMemo(() => {
     return tableRows.map((row) => ({
@@ -487,7 +423,7 @@ function VoterDistributionSection({ features, loading }) {
         </div>
       </div>
 
-      {loading && <div className="small-text muted-text" style={{ marginBottom: 8 }}>Loading statewide vote distribution from precinct GeoJSON...</div>}
+      {loading && <div className="small-text muted-text" style={{ marginBottom: 8 }}>Loading statewide vote distribution from the backend...</div>}
 
       {!loading && totalVotes <= 0 && (
         <div className="small-text muted-text" style={{ marginBottom: 8 }}>
@@ -557,7 +493,7 @@ function isValidRightPanelView(view) {
   return RIGHT_PANEL_VIEW_OPTIONS.some((option) => option.value === view)
 }
 
-function MapSummaryCards({ summary, statewideCvapSummary, precinctFeatures, loading }) {
+function MapSummaryCards({ summary, loading }) {
   if (!summary) {
     return (
       <Card title="Summary">
@@ -570,18 +506,18 @@ function MapSummaryCards({ summary, statewideCvapSummary, precinctFeatures, load
     <>
       <Card title="Population Overview">
         <PopulationSummaryTable
-          cvapTotal={statewideCvapSummary?.votingAgePopulation}
+          cvapTotal={summary?.votingAgePopulation}
           districtCount={summary?.districts}
           loading={loading}
         />
       </Card>
 
       <Card title="Voter Distribution">
-        <VoterDistributionSection features={precinctFeatures} loading={loading} />
+        <VoterDistributionSection summary={summary} loading={loading} />
       </Card>
 
       <Card title="Racial Groups">
-        <RacialGroupsSection summary={statewideCvapSummary} loading={loading} />
+        <RacialGroupsSection summary={summary} loading={loading} />
       </Card>
 
       <Card title="Redistricting Process">
@@ -593,7 +529,7 @@ function MapSummaryCards({ summary, statewideCvapSummary, precinctFeatures, load
       </Card>
 
       <Card title="Ensemble Summary">
-        <EnsembleSummaryTable />
+        <EnsembleSummaryTable summary={summary} />
       </Card>
     </>
   )
@@ -607,8 +543,6 @@ function RightPanelPageOne({
   activeView,
   setActiveView,
   summary,
-  statewideCvapSummary,
-  precinctFeatures,
   loading,
   ensembleView,
   setEnsembleView,
@@ -627,8 +561,6 @@ function RightPanelPageOne({
       {activeView === 'Map' && (
         <MapSummaryCards
           summary={summary}
-          statewideCvapSummary={statewideCvapSummary}
-          precinctFeatures={precinctFeatures}
           loading={loading}
         />
       )}
@@ -636,7 +568,7 @@ function RightPanelPageOne({
       {activeView === 'Gingles' && (
         <Card title="">
           <div style={{ width: '100%', height: 'min(72vh, 700px)' }}>
-            <GinglesScatter stateCode={selectedStateCode} features={precinctFeatures} />
+            <GinglesScatter stateCode={selectedStateCode} />
           </div>
         </Card>
       )}
@@ -644,7 +576,7 @@ function RightPanelPageOne({
       {activeView === 'EI' && (
         <Card title="">
           <div style={{ width: '100%', height: 'min(72vh, 700px)' }}>
-            <EICurve stateCode={selectedStateCode} features={precinctFeatures} />
+            <EICurve stateCode={selectedStateCode} />
           </div>
         </Card>
       )}
@@ -681,30 +613,18 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
 
   const [summary, setSummary] = useState(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
-  const repRows = representationRows[selectedStateCode] ?? []
-<<<<<<< HEAD
-  const statewideCvapSummary = useMemo(
-    () => buildStatewideCvapSummary(precinctGeojson?.features ?? []),
-    [precinctGeojson?.features],
-  )
-  const selectedDistrictDatasetDetails = useMemo(
-    () => buildSelectedDistrictDatasetDetails(precinctGeojson?.features ?? [], selectedDistrictId),
-    [precinctGeojson?.features, selectedDistrictId],
-  )
-  const feasibleGroups = getFeasibleGroupKeys(statewideCvapSummary)
-=======
+  const [representationRows, setRepresentationRows] = useState([])
   const precinctFeatures = useMemo(() => {
     return precinctGeojson?.features ?? []
   }, [precinctGeojson])
-
-  const statewideCvapSummary = useMemo(() => {
-    return buildStatewideCvapSummary(precinctFeatures)
-  }, [precinctFeatures])
-
->>>>>>> origin/main
+  const selectedDistrictDatasetDetails = useMemo(
+    () => buildSelectedDistrictDatasetDetails(precinctFeatures, selectedDistrictId),
+    [precinctFeatures, selectedDistrictId],
+  )
   const canShowRepresentationPage = Boolean(selectedDistrictId)
   const [detailsPage, setDetailsPage] = useState(0)
   const [ensembleView, setEnsembleView] = useState('splits')
+  const repRows = representationRows
 
   // Always stay on page 1 if no district is selected.
   useEffect(() => {
@@ -718,7 +638,7 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
 
       setSummaryLoading(true)
       try {
-        // One client/server review request: ask Spring for the selected state's summary.
+        // Ask Spring for the selected state's summary and render the response directly.
         const response = await axios.get(`/api/states/${selectedStateCode}/summary`)
         const nextSummary = response.data
         if (!cancelled) {
@@ -740,6 +660,39 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
     }
 
     loadSummary()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedStateCode])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadRepresentation() {
+      if (!selectedStateCode) {
+        setRepresentationRows([])
+        return
+      }
+
+      try {
+        const response = await axios.get(`/api/states/${selectedStateCode}/representation`)
+        const nextRows = Array.isArray(response.data?.rows) ? response.data.rows : []
+        if (!cancelled) {
+          setRepresentationRows(nextRows)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setRepresentationRows([])
+        }
+
+        if (!axios.isAxiosError(error) || error.response?.status !== 404) {
+          console.error('Failed to load representation rows', error)
+        }
+      }
+    }
+
+    loadRepresentation()
 
     return () => {
       cancelled = true
@@ -795,8 +748,6 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
           activeView={effectiveView}
           setActiveView={setActiveTab}
           summary={summary}
-          statewideCvapSummary={statewideCvapSummary}
-          precinctFeatures={precinctFeatures}
           loading={loading || summaryLoading}
           ensembleView={ensembleView}
           setEnsembleView={setEnsembleView}
@@ -804,7 +755,6 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
       )}
 
       {effectivePage === 1 && canShowRepresentationPage && (
-<<<<<<< HEAD
         <>
           <Card title="Congressional Representation">
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
@@ -831,22 +781,6 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
             </Card>
           )}
         </>
-=======
-        <Card title="Congressional Representation">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setSelectedDistrictId(null)
-                setDetailsPage(0)
-              }}
-            >
-              Exit District Details
-            </Button>
-          </div>
-          <RepresentationTable rows={repRows} selectedDistrictId={selectedDistrictId} onSelectDistrict={setSelectedDistrictId} />
-        </Card>
->>>>>>> origin/main
       )}
     </aside>
   )

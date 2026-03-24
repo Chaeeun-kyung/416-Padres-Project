@@ -17,13 +17,7 @@ function normalizeFeature(feature) {
   }
 }
 
-<<<<<<< HEAD
 export async function loadPrecinctGeoJSON(stateCode, precinctDataVariant = PRECINCT_DATA_VARIANT) {
-=======
-// Loads precinct GeoJSON for the selected state and caches it in memory.
-// Current app convention is to always use the CVAP-enriched precinct file.
-export async function loadPrecinctGeoJSON(stateCode) {
->>>>>>> origin/main
   if (!stateCode) return null
   const normalizedVariant = String(precinctDataVariant ?? PRECINCT_DATA_VARIANT).toLowerCase() === 'cvap'
     ? 'cvap'

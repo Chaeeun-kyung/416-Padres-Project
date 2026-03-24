@@ -50,12 +50,9 @@ const useAppStore = create((set) => ({
       activeMetric: metric,
       showDemLeadOverlay: metric ? false : state.showDemLeadOverlay,
     })),
-<<<<<<< HEAD
   setPrecinctDataVariant: (variant) =>
     set({ precinctDataVariant: variant === 'cvap' ? 'cvap' : DEFAULT_PRECINCT_DATA_VARIANT }),
-=======
   // Map layer toggles.
->>>>>>> origin/main
   toggleDistrictBoundaries: () =>
     set((state) => ({ showDistrictBoundaries: !state.showDistrictBoundaries })),
   togglePrecinctBoundaries: () =>

@@ -1,38 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import axios from 'axios'
 import Plot from 'react-plotly.js'
-import districtBoxplot from '../../data/mock/districtBoxplot.json'
 import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
 
-// Selector options for which ensemble distribution to render.
-const ENSEMBLE_OPTIONS = [
-  { value: 'raceBlind', label: 'Race-blind Ensemble' },
-  { value: 'vraConstrained', label: 'VRA-constrained Ensemble' },
-]
-const GROUP_OPTIONS = [
-  { value: 'white_pct', label: 'White' },
-  { value: 'latino_pct', label: 'Latino' },
-]
-
-// Small demo offsets by demographic group so mock data differs across selections.
-const GROUP_OFFSETS = {
-  white_pct: 0.012,
-  black_pct: 0,
-  latino_pct: 0.03,
-  native_american_pct: 0.022,
-  asian_pct: -0.018,
-}
-
-// Small demo offsets by ensemble type so race-blind/VRA views are distinct.
-const ENSEMBLE_OFFSETS = {
-  raceBlind: 0,
-  vraConstrained: 0.012,
-}
-
-// Ensures all plotted shares stay in the valid [0, 1] interval.
-function clamp01(value) {
-  return Math.max(0, Math.min(1, value))
-}
+const ensembleBoxplotCache = new Map()
 
 // Finds a Latino/Hispanic option so default selection matches common class examples.
 function findLatinoOption(options) {
@@ -44,46 +16,105 @@ function findLatinoOption(options) {
 
 // Renders the ranked-district boxplot comparison with enacted-plan dots.
 function EnsembleBoxplot({ stateCode }) {
-  const stateData = districtBoxplot?.[stateCode]
-  const baseDistributions = stateData?.distributions ?? {}
-  const baseEnacted = stateData?.enacted ?? {}
-  const districtIds = Object.keys(baseDistributions)
-
-  const defaultGroupValue = findLatinoOption(GROUP_OPTIONS)?.value ?? GROUP_OPTIONS[0]?.value ?? 'latino_pct'
+  const [analysis, setAnalysis] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const defaultGroupValue = 'latino_pct'
   const [selectedGroup, setSelectedGroup] = useState(defaultGroupValue)
-  const [selectedEnsemble, setSelectedEnsemble] = useState(ENSEMBLE_OPTIONS[0].value)
-  const effectiveGroup = GROUP_OPTIONS.some((option) => option.value === selectedGroup)
-    ? selectedGroup
-    : defaultGroupValue
+  const [selectedEnsemble, setSelectedEnsemble] = useState('raceBlind')
 
-  if (!districtIds.length) {
-    return <div className="small-text muted-text">No district distribution data available.</div>
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadStateData() {
+      if (!stateCode) {
+        setAnalysis(null)
+        setError('')
+        return
+      }
+
+      setLoading(true)
+      setError('')
+      try {
+        const cacheKey = `${stateCode}:${selectedGroup}:${selectedEnsemble}`
+        if (ensembleBoxplotCache.has(cacheKey)) {
+          if (!cancelled) {
+            setAnalysis(ensembleBoxplotCache.get(cacheKey))
+            setLoading(false)
+          }
+          return
+        }
+
+        const response = await axios.get(`/api/states/${stateCode}/ensembles/boxplot`, {
+          params: {
+            group: selectedGroup,
+            ensemble: selectedEnsemble,
+          },
+        })
+        if (!cancelled) {
+          const nextAnalysis = response.data ?? null
+          ensembleBoxplotCache.set(cacheKey, nextAnalysis)
+          setAnalysis(nextAnalysis)
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setAnalysis(null)
+          const message = axios.isAxiosError(loadError)
+            ? loadError.response?.data?.message ?? loadError.message
+            : 'Failed to load boxplot data.'
+          setError(message)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadStateData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedEnsemble, selectedGroup, stateCode])
+
+  const groupOptions = Array.isArray(analysis?.availableGroups)
+    ? analysis.availableGroups
+        .filter((option) => option?.key && option?.label)
+        .map((option) => ({ value: option.key, label: option.label }))
+    : []
+  const ensembleOptions = Array.isArray(analysis?.availableEnsembles)
+    ? analysis.availableEnsembles
+        .filter((option) => option?.key && option?.label)
+        .map((option) => ({ value: option.key, label: option.label }))
+    : []
+
+  const fallbackGroupValue = findLatinoOption(groupOptions)?.value ?? groupOptions[0]?.value ?? defaultGroupValue
+  const effectiveGroup = analysis?.groupKey
+    ?? (groupOptions.some((option) => option.value === selectedGroup) ? selectedGroup : fallbackGroupValue)
+  const effectiveEnsemble = analysis?.ensembleKey
+    ?? (ensembleOptions.some((option) => option.value === selectedEnsemble) ? selectedEnsemble : ensembleOptions[0]?.value ?? 'raceBlind')
+
+  const baseDistributions = analysis?.distributions ?? {}
+  const baseEnacted = analysis?.enacted ?? {}
+  const orderedDistrictIds = Array.isArray(analysis?.districtOrder) ? analysis.districtOrder : Object.keys(baseDistributions)
+
+  if (loading) {
+    return <div className="small-text muted-text">Loading district boxplot data...</div>
   }
 
-  const groupOffset = GROUP_OFFSETS[effectiveGroup] ?? 0
-  const ensembleOffset = ENSEMBLE_OFFSETS[selectedEnsemble] ?? 0
+  if (error) {
+    return <div className="small-text muted-text">Failed to load district boxplot data: {error}</div>
+  }
 
-  // Adjust enacted values and sort districts so x-axis rank is meaningful.
-  const adjustedEnacted = {}
-  districtIds.forEach((districtId, index) => {
-    const baseValue = Number(baseEnacted[districtId] ?? 0)
-    adjustedEnacted[districtId] = clamp01(baseValue + groupOffset + ensembleOffset + index * 0.0015)
-  })
-
-  const orderedDistrictIds = [...districtIds].sort((a, b) => adjustedEnacted[a] - adjustedEnacted[b])
-  const adjustedDistributions = {}
-
-  // Build per-district distributions for Plotly box traces.
-  orderedDistrictIds.forEach((districtId, districtIndex) => {
-    adjustedDistributions[districtId] = (baseDistributions[districtId] ?? []).map((value, rowIndex) =>
-      clamp01(Number(value) + groupOffset + ensembleOffset + districtIndex * 0.001 + rowIndex * 0.0004),
-    )
-  })
+  if (!orderedDistrictIds.length) {
+    return <div className="small-text muted-text">No district distribution data available.</div>
+  }
 
   const boxTraces = orderedDistrictIds.map((districtId) => ({
     type: 'box',
     name: districtId,
-    y: adjustedDistributions[districtId],
+    y: baseDistributions[districtId] ?? [],
     boxpoints: false,
     marker: { color: '#94a3b8' },
     line: { color: '#475569' },
@@ -94,7 +125,7 @@ function EnsembleBoxplot({ stateCode }) {
     type: 'scatter',
     mode: 'markers',
     x: orderedDistrictIds,
-    y: orderedDistrictIds.map((districtId) => adjustedEnacted[districtId]),
+    y: orderedDistrictIds.map((districtId) => baseEnacted[districtId]),
     name: 'Enacted Plan',
     marker: {
       color: '#dc2626',
@@ -124,13 +155,13 @@ function EnsembleBoxplot({ stateCode }) {
             ariaLabel="Boxplot demographic group"
             value={effectiveGroup}
             onChange={setSelectedGroup}
-            options={GROUP_OPTIONS}
+            options={groupOptions}
           />
           <Select
             ariaLabel="Boxplot ensemble type"
-            value={selectedEnsemble}
+            value={effectiveEnsemble}
             onChange={setSelectedEnsemble}
-            options={ENSEMBLE_OPTIONS}
+            options={ensembleOptions}
           />
         </div>
       </div>

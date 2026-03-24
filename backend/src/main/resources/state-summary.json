@@ -1,12 +1,33 @@
 {
   "CO": {
+    "stateCode": "CO",
     "districts": 8,
+    "votingAgePopulation": 4352601.93,
+    "racialEthnicPopulationPct": {
+      "white_pct": 73.32301772279716,
+      "black_pct": 3.740600797989642,
+      "latino_pct": 16.96841652443865,
+      "asian_pct": 2.6383797062896925,
+      "native_american_pct": 0.0
+    },
     "racialEthnicPopulationMillions": {
-      "white_pct": 3.15,
-      "black_pct": 0.21,
-      "latino_pct": 1.02,
-      "native_american_pct": 0.06,
-      "asian_pct": 0.18
+      "white_pct": 3.191459083602734,
+      "black_pct": 0.16281346247924539,
+      "latino_pct": 0.7385676249170146,
+      "native_american_pct": 0.0,
+      "asian_pct": 0.11483816598308622
+    },
+    "voterDistribution": {
+      "demVotes": 1727561,
+      "repVotes": 1377057,
+      "totalVotes": 3192183,
+      "demPct": 54.11848255566801,
+      "repPct": 43.13841029790586
+    },
+    "ensembleSummary": {
+      "raceBlindPlans": 5000,
+      "vraConstrainedPlans": 5000,
+      "populationEqualityThresholdLabel": "+/-1%"
     },
     "redistrictingControl": "Colorado Independent Congressional Redistricting Commission",
     "congressionalPartySummary": {
@@ -15,13 +36,34 @@
     }
   },
   "AZ": {
+    "stateCode": "AZ",
     "districts": 9,
+    "votingAgePopulation": 5324359.48,
+    "racialEthnicPopulationPct": {
+      "white_pct": 61.909247136040115,
+      "black_pct": 4.448948534460336,
+      "latino_pct": 24.341791401457808,
+      "asian_pct": 2.7552381622547513,
+      "native_american_pct": 0.0
+    },
     "racialEthnicPopulationMillions": {
-      "white_pct": 3.17,
-      "black_pct": 0.39,
-      "latino_pct": 1.77,
-      "native_american_pct": 0.27,
-      "asian_pct": 0.22
+      "white_pct": 3.2962708680957804,
+      "black_pct": 0.23687801299818925,
+      "latino_pct": 1.2960444777752778,
+      "native_american_pct": 0.0,
+      "asian_pct": 0.1466987842534924
+    },
+    "voterDistribution": {
+      "demVotes": 1582852,
+      "repVotes": 1770237,
+      "totalVotes": 3389306,
+      "demPct": 46.7013601014485,
+      "repPct": 52.23007305920445
+    },
+    "ensembleSummary": {
+      "raceBlindPlans": 5000,
+      "vraConstrainedPlans": 5000,
+      "populationEqualityThresholdLabel": "+/-1%"
     },
     "redistrictingControl": "Arizona Independent Redistricting Commission",
     "congressionalPartySummary": {

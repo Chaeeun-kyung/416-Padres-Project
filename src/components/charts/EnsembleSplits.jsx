@@ -1,18 +1,7 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import ensembleSplits from '../../data/mock/ensembleSplits.json'
-import { STATE_META } from '../../data/stateMeta'
 import Info from '../../ui/components/Info'
-
-// Returns split-frequency data for the selected state from mock ensemble results.
-function getStateSplitData(stateCode) {
-  return ensembleSplits?.[stateCode]
-}
-
-// Reads district count metadata used to compute the D side of "R/D" labels.
-function getDistrictCount(stateCode) {
-  return STATE_META[stateCode]?.districtCount ?? 0
-}
 
 // Converts split rows into a Map for O(1) frequency lookup by Republican wins.
 function toSplitMap(rows) {
@@ -52,11 +41,60 @@ function buildSplitRows(stateData, districtCount) {
 
 // Main ensemble split chart component (GUI-16 style split comparison display).
 function EnsembleSplits({ stateCode }) {
-  const stateData = getStateSplitData(stateCode)
-  const districtCount = getDistrictCount(stateCode)
+  const [stateData, setStateData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const districtCount = Number(stateData?.districtCount ?? 0)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadStateData() {
+      if (!stateCode) {
+        setStateData(null)
+        setError('')
+        return
+      }
+
+      setLoading(true)
+      setError('')
+      try {
+        const response = await axios.get(`/api/states/${stateCode}/ensembles/splits`)
+        if (!cancelled) {
+          setStateData(response.data)
+        }
+      } catch (loadError) {
+        if (!cancelled) {
+          setStateData(null)
+          const message = axios.isAxiosError(loadError)
+            ? loadError.response?.data?.message ?? loadError.message
+            : 'Failed to load ensemble split data.'
+          setError(message)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadStateData()
+
+    return () => {
+      cancelled = true
+    }
+  }, [stateCode])
 
   // Memoize derived chart data so it only recomputes when inputs actually change.
   const data = useMemo(() => buildSplitRows(stateData, districtCount), [districtCount, stateData])
+
+  if (loading) {
+    return <div className="small-text muted-text">Loading ensemble split data...</div>
+  }
+
+  if (error) {
+    return <div className="small-text muted-text">Failed to load ensemble split data: {error}</div>
+  }
 
   if (!data.length) {
     return <div className="small-text muted-text">No ensemble split data available.</div>

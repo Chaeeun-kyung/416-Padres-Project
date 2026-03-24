@@ -3,33 +3,22 @@ import useAppStore from '../store/useAppStore'
 import Card from '../ui/components/Card'
 import Select from '../ui/components/Select'
 import ToggleSwitch from '../ui/components/ToggleSwitch'
+import metricConfig from '../data/mock/metricConfig.json'
 
 const STATE_OPTIONS = [
   { value: 'CO', label: 'Colorado (CO)' },
   { value: 'AZ', label: 'Arizona (AZ)' },
 ]
-<<<<<<< HEAD
 const PRECINCT_DATA_OPTIONS = [
   { value: 'enacted', label: 'Enacted + CVAP' },
   { value: 'cvap', label: 'Original CVAP only' },
 ]
-const CVAP_TOTAL_FIELD = 'CVAP_TOT24'
-const CVAP_GROUP_FIELDS = {
-  white_pct: 'CVAP_WHT24',
-  black_pct: 'CVAP_BLA24',
-  latino_pct: 'CVAP_HSP24',
-  asian_pct: 'CVAP_ASI24',
-}
-const DEMOGRAPHIC_METRICS = metricConfig.filter((metric) => metric.key !== 'pct_dem_lead')
-const DEMOGRAPHIC_METRIC_LABELS = Object.fromEntries(
-  DEMOGRAPHIC_METRICS.map((metric) => [metric.key, metric.label]),
-)
-=======
 const HEATMAP_OPTIONS = [
   { value: '', label: 'None' },
-  { value: 'latino_pct', label: 'Latino Population %' },
+  ...metricConfig
+    .filter((metric) => metric.key !== 'pct_dem_lead')
+    .map((metric) => ({ value: metric.key, label: metric.label })),
 ]
->>>>>>> origin/main
 
 // Guards against stale selections after state/data changes.
 // If selected metric is no longer available, fall back to None.
@@ -57,32 +46,8 @@ function LeftControls() {
   const toggleDemLeadOverlay = useAppStore((state) => state.toggleDemLeadOverlay)
   const activeMetric = useAppStore((state) => state.activeMetric)
   const setActiveMetric = useAppStore((state) => state.setActiveMetric)
-<<<<<<< HEAD
   const setPrecinctDataVariant = useAppStore((state) => state.setPrecinctDataVariant)
-  const cvapSummaryForFeasible = useMemo(
-    () => buildCvapSummaryForFeasible(precinctGeojson?.features ?? []),
-    [precinctGeojson?.features],
-  )
-
-  const feasibleDemographicOptions = useMemo(
-    () => buildGroupOptions(
-      DEMOGRAPHIC_METRICS.map((metric) => metric.key),
-      cvapSummaryForFeasible,
-      DEMOGRAPHIC_METRIC_LABELS,
-      {
-        includeOnlyFeasible: Boolean(cvapSummaryForFeasible),
-        includeOnlyMinorities: true,
-      },
-    ),
-    [cvapSummaryForFeasible],
-  )
-  const metricOptions = useMemo(
-    () => [{ value: '', label: 'None' }, ...feasibleDemographicOptions],
-    [feasibleDemographicOptions],
-  )
-=======
   const metricOptions = HEATMAP_OPTIONS
->>>>>>> origin/main
   const firstAvailableMetric = metricOptions.find((option) => option.value)?.value ?? ''
   const effectiveMetric = getEffectiveMetric(metricOptions, activeMetric)
 
