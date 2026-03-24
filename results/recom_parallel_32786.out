@@ -1,0 +1,90 @@
+Starting parallel ReCom job...
+Worker 1 running 10 steps...
+ReCom succeeded on districts 0 and 1
+Worker 1 step 1 saved
+ReCom succeeded on districts 1 and 2
+Worker 1 step 2 saved
+ReCom succeeded on districts 1 and 2
+Worker 1 step 3 saved
+ReCom succeeded on districts 0 and 1
+Worker 1 step 4 saved
+ReCom succeeded on districts 0 and 2
+Worker 1 step 5 saved
+ReCom succeeded on districts 2 and 3
+Worker 1 step 6 saved
+ReCom succeeded on districts 1 and 2
+Worker 1 step 7 saved
+ReCom succeeded on districts 0 and 2
+Worker 1 step 8 saved
+ReCom succeeded on districts 0 and 3
+Worker 1 step 9 saved
+ReCom succeeded on districts 0 and 1
+Worker 1 step 10 saved
+Worker 1 saved to ../results/recom_worker_1.json
+Worker 3 running 10 steps...
+ReCom succeeded on districts 0 and 1
+Worker 3 step 1 saved
+ReCom succeeded on districts 1 and 2
+Worker 3 step 2 saved
+ReCom succeeded on districts 1 and 2
+Worker 3 step 3 saved
+ReCom succeeded on districts 0 and 1
+Worker 3 step 4 saved
+ReCom succeeded on districts 0 and 2
+Worker 3 step 5 saved
+ReCom succeeded on districts 2 and 3
+Worker 3 step 6 saved
+ReCom succeeded on districts 1 and 2
+Worker 3 step 7 saved
+ReCom succeeded on districts 0 and 2
+Worker 3 step 8 saved
+ReCom succeeded on districts 0 and 3
+Worker 3 step 9 saved
+ReCom succeeded on districts 0 and 1
+Worker 3 step 10 saved
+Worker 3 saved to ../results/recom_worker_3.json
+Worker 2 running 10 steps...
+ReCom succeeded on districts 0 and 1
+Worker 2 step 1 saved
+ReCom succeeded on districts 1 and 2
+Worker 2 step 2 saved
+ReCom succeeded on districts 1 and 2
+Worker 2 step 3 saved
+ReCom succeeded on districts 0 and 1
+Worker 2 step 4 saved
+ReCom succeeded on districts 0 and 2
+Worker 2 step 5 saved
+ReCom succeeded on districts 2 and 3
+Worker 2 step 6 saved
+ReCom succeeded on districts 1 and 2
+Worker 2 step 7 saved
+ReCom succeeded on districts 0 and 2
+Worker 2 step 8 saved
+ReCom succeeded on districts 0 and 3
+Worker 2 step 9 saved
+ReCom succeeded on districts 0 and 1
+Worker 2 step 10 saved
+Worker 2 saved to ../results/recom_worker_2.json
+Worker 0 running 10 steps...
+ReCom succeeded on districts 0 and 1
+Worker 0 step 1 saved
+ReCom succeeded on districts 1 and 2
+Worker 0 step 2 saved
+ReCom succeeded on districts 1 and 2
+Worker 0 step 3 saved
+ReCom succeeded on districts 0 and 1
+Worker 0 step 4 saved
+ReCom succeeded on districts 0 and 2
+Worker 0 step 5 saved
+ReCom succeeded on districts 2 and 3
+Worker 0 step 6 saved
+ReCom succeeded on districts 1 and 2
+Worker 0 step 7 saved
+ReCom succeeded on districts 0 and 2
+Worker 0 step 8 saved
+ReCom succeeded on districts 0 and 3
+Worker 0 step 9 saved
+ReCom succeeded on districts 0 and 1
+Worker 0 step 10 saved
+Worker 0 saved to ../results/recom_worker_0.json
+All workers finished
