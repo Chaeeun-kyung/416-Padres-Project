@@ -307,32 +307,46 @@ function RacialGroupsSection({ summary, loading }) {
   )
 }
 
-// Summary table for ensemble counts and population-equality metadata.
-function EnsembleSummaryTable({ summary }) {
-  const rows = [
-    { label: 'Race-blind plans', value: summary?.ensembleSummary?.raceBlindPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.raceBlindPlans ?? 'N/A' },
-    { label: 'VRA-constrained plans', value: summary?.ensembleSummary?.vraConstrainedPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.vraConstrainedPlans ?? 'N/A' },
-    { label: 'Population Equality Threshold', value: summary?.ensembleSummary?.populationEqualityThresholdLabel ?? 'N/A' },
+function EnsembleSummaryStrip({ summary }) {
+  const items = [
+    {
+      label: 'Race-blind plans',
+      value: summary?.ensembleSummary?.raceBlindPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.raceBlindPlans ?? 'N/A',
+    },
+    {
+      label: 'VRA-constrained plans',
+      value: summary?.ensembleSummary?.vraConstrainedPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.vraConstrainedPlans ?? 'N/A',
+    },
+    {
+      label: 'Population threshold',
+      value: summary?.ensembleSummary?.populationEqualityThresholdLabel ?? 'N/A',
+    },
   ]
 
   return (
-    <div style={{ width: '100%', overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid var(--ui-border)', textAlign: 'left' }}>
-            <th style={{ padding: 6 }}>Metric</th>
-            <th style={{ padding: 6, textAlign: 'right' }}>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label} style={{ borderBottom: '1px solid var(--ui-border)' }}>
-              <td style={{ padding: 6 }}>{row.label}</td>
-              <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{row.value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: 8,
+        marginBottom: 10,
+      }}
+    >
+      {items.map((item) => (
+        <div
+          key={item.label}
+          style={{
+            border: '1px solid var(--ui-border)',
+            borderRadius: 10,
+            padding: '8px 10px',
+            background: '#f8fafc',
+            minWidth: 0,
+          }}
+        >
+          <div className="small-text muted-text" style={{ marginBottom: 3 }}>{item.label}</div>
+          <div className="small-text" style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{item.value}</div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -527,10 +541,6 @@ function MapSummaryCards({ summary, loading }) {
       <Card title="Congressional Party">
         <CongressionalPartySummarySection summary={summary} />
       </Card>
-
-      <Card title="Ensemble Summary">
-        <EnsembleSummaryTable summary={summary} />
-      </Card>
     </>
   )
 }
@@ -583,8 +593,9 @@ function RightPanelPageOne({
 
       {activeView === 'Ensembles' && (
         <Card title="Ensemble Analysis">
-          <div style={{ width: '100%', height: 'min(72vh, 700px)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ width: 360, maxWidth: '100%' }}>
+          <div style={{ width: '100%', height: 'min(68vh, 620px)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <EnsembleSummaryStrip summary={summary} />
+            <div style={{ width: 360, maxWidth: '100%', marginBottom: 2 }}>
               <SegmentedControl
                 ariaLabel="Ensemble chart selector"
                 value={ensembleView}

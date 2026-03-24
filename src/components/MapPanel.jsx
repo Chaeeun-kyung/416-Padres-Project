@@ -80,21 +80,19 @@ const DISTRICT_SELECTED_DEM_STROKE = '#1D4ED8'
 const DISTRICT_SELECTED_DEM_FILL = '#DBEAFE'
 const DISTRICT_SELECTED_REP_STROKE = '#B91C1C'
 const DISTRICT_SELECTED_REP_FILL = '#FEE2E2'
-const DISTRICT_DEFAULT_STROKE = '#334155'
+const DISTRICT_DEFAULT_STROKE = '#1f2937'
 
+// Used map color palette
 const DISTRICT_FILL_PALETTE = [
-  '#A0C4FF',
-  '#BDB2FF',
-  '#FFC6FF',
-  '#FFD6A5',
-  '#FDFFB6',
-  '#CAFFBF',
-  '#9BF6FF',
-  '#FAD2E1',
-  '#CDEAC0',
-  '#C9E4FF',
-  '#FEE440',
-  '#D3F8E2',
+  '#fbb2ff',
+  '#ffb4d8',
+  '#FCF6BD',
+  '#E6F5CE',
+  '#D0F4DE',
+  '#BDE9EC',
+  '#A9DEF9',
+  '#C7D0F9',
+  '#E4C1F9',
 ]
 
 function getDistrictColor(districtId) {
@@ -513,9 +511,10 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
 
     return {
       color: DISTRICT_DEFAULT_STROKE,
-      weight: 1.8,
-      opacity: 0.95,
+      weight: 1.9,
+      opacity: 0.98,
       fillColor,
+      // Keep fills translucent so district/precinct boundaries remain legible.
       fillOpacity: hasMetricSelection ? 0 : 0.58,
     }
   }

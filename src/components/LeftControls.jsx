@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import axios from 'axios'
 import useAppStore from '../store/useAppStore'
 import Card from '../ui/components/Card'
 import Select from '../ui/components/Select'
@@ -13,12 +14,9 @@ const PRECINCT_DATA_OPTIONS = [
   { value: 'enacted', label: 'Enacted + CVAP' },
   { value: 'cvap', label: 'Original CVAP only' },
 ]
-const HEATMAP_OPTIONS = [
-  { value: '', label: 'None' },
-  ...metricConfig
-    .filter((metric) => metric.key !== 'pct_dem_lead')
-    .map((metric) => ({ value: metric.key, label: metric.label })),
-]
+const FEASIBLE_GROUP_MIN_MILLIONS = 0.4
+const FEASIBLE_GROUP_KEYS = ['white_pct', 'latino_pct']
+const HEATMAP_BASE_OPTIONS = metricConfig.filter((metric) => metric.key !== 'pct_dem_lead')
 
 // Guards against stale selections after state/data changes.
 // If selected metric is no longer available, fall back to None.
@@ -47,9 +45,45 @@ function LeftControls() {
   const activeMetric = useAppStore((state) => state.activeMetric)
   const setActiveMetric = useAppStore((state) => state.setActiveMetric)
   const setPrecinctDataVariant = useAppStore((state) => state.setPrecinctDataVariant)
-  const metricOptions = HEATMAP_OPTIONS
+  const [feasibleGroupKeys, setFeasibleGroupKeys] = useState(FEASIBLE_GROUP_KEYS)
+  const metricOptions = useMemo(() => ([
+    { value: '', label: 'None' },
+    ...HEATMAP_BASE_OPTIONS
+      .filter((metric) => feasibleGroupKeys.includes(metric.key))
+      .map((metric) => ({ value: metric.key, label: metric.label })),
+  ]), [feasibleGroupKeys])
   const firstAvailableMetric = metricOptions.find((option) => option.value)?.value ?? ''
   const effectiveMetric = getEffectiveMetric(metricOptions, activeMetric)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadFeasibleGroups() {
+      if (!selectedStateCode) {
+        setFeasibleGroupKeys(FEASIBLE_GROUP_KEYS)
+        return
+      }
+
+      try {
+        const response = await axios.get(`/api/states/${selectedStateCode}/summary`)
+        const millions = response.data?.racialEthnicPopulationMillions ?? {}
+        const nextKeys = FEASIBLE_GROUP_KEYS.filter((key) => Number(millions[key]) > FEASIBLE_GROUP_MIN_MILLIONS)
+        if (!cancelled) {
+          setFeasibleGroupKeys(nextKeys.length > 0 ? nextKeys : FEASIBLE_GROUP_KEYS)
+        }
+      } catch {
+        if (!cancelled) {
+          setFeasibleGroupKeys(FEASIBLE_GROUP_KEYS)
+        }
+      }
+    }
+
+    loadFeasibleGroups()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedStateCode])
 
   // If selected metric disappears after a state/data change, auto-correct it.
   useEffect(() => {
