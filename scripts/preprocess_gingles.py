@@ -1,4 +1,5 @@
-# Gingles chart data: preprocess precinct GeoJSON to extract relevant fields and compute shares
+# Gingles chart data: preprocess precinct GeoJSON to extract relevant fields, compute
+# chart-ready samples, and precompute regression metadata for the backend.
 # 2024 Presidential election results and CVAP demographics (2024 ACS)
 
 import argparse
@@ -13,6 +14,11 @@ from pathlib import Path
 STATE_FIPS_TO_CODE = {"04": "AZ", "08": "CO"}
 DEFAULT_INPUT = "public/geojson/*-precincts-with-results-cvap.geojson"
 GROUPS = ["white_pct", "latino_pct"]
+GROUP_LABELS = {"white_pct": "White", "latino_pct": "Latino"}
+TREND_DEGREE = 3
+TREND_POINT_COUNT = 90
+BACKEND_RENDER_POINT_LIMIT = 1000
+BACKEND_SAMPLE_BIN_COUNT = 28
 
 
 def to_number(value):
@@ -33,6 +39,203 @@ def pick_number(props, keys):
 
 def clamp01(value):
     return max(0.0, min(1.0, value))
+
+
+def pick_evenly(items, count):
+    if count <= 0 or not items:
+        return []
+    if count >= len(items):
+        return list(items)
+
+    picked = []
+    stride = len(items) / count
+    cursor = 0.0
+    for _ in range(count):
+        index = min(len(items) - 1, int(cursor))
+        picked.append(items[index])
+        cursor += stride
+    return picked
+
+
+def sample_rows_for_render(rows, group, max_rows=BACKEND_RENDER_POINT_LIMIT, bin_count=BACKEND_SAMPLE_BIN_COUNT):
+    if not isinstance(rows, list) or len(rows) <= max_rows:
+        return list(rows or [])
+
+    bins = [[] for _ in range(bin_count)]
+    for row in rows:
+        x = to_number(row.get(group))
+        if x is None:
+            continue
+        bin_index = max(0, min(bin_count - 1, int(x * bin_count)))
+        bins[bin_index].append(row)
+
+    non_empty_bins = [bucket for bucket in bins if bucket]
+    if not non_empty_bins:
+        return list(rows[:max_rows])
+
+    sampled = []
+    base_quota = max(1, max_rows // len(non_empty_bins))
+    remaining = max_rows
+    leftovers = []
+
+    for bucket in non_empty_bins:
+        take = min(len(bucket), base_quota)
+        chosen = pick_evenly(bucket, take)
+        sampled.extend(chosen)
+        remaining -= len(chosen)
+        if len(bucket) > take:
+            chosen_ids = {id(item) for item in chosen}
+            leftovers.extend(item for item in bucket if id(item) not in chosen_ids)
+
+    if remaining > 0 and leftovers:
+        sampled.extend(pick_evenly(leftovers, min(remaining, len(leftovers))))
+
+    return sampled[:max_rows]
+
+
+def solve_linear_system(matrix, vector):
+    n = len(vector)
+    augmented = [list(row) + [vector[index]] for index, row in enumerate(matrix)]
+
+    for pivot in range(n):
+        max_row = pivot
+        max_abs = abs(augmented[pivot][pivot])
+        for row in range(pivot + 1, n):
+            abs_value = abs(augmented[row][pivot])
+            if abs_value > max_abs:
+                max_abs = abs_value
+                max_row = row
+
+        if max_abs <= 1e-12:
+            return None
+
+        if max_row != pivot:
+            augmented[pivot], augmented[max_row] = augmented[max_row], augmented[pivot]
+
+        pivot_value = augmented[pivot][pivot]
+        for col in range(pivot, n + 1):
+            augmented[pivot][col] /= pivot_value
+
+        for row in range(n):
+            if row == pivot:
+                continue
+            factor = augmented[row][pivot]
+            for col in range(pivot, n + 1):
+                augmented[row][col] -= factor * augmented[pivot][col]
+
+    return [augmented[row][n] for row in range(n)]
+
+
+def fit_polynomial(points, value_key, degree):
+    size = degree + 1
+    matrix = [[0.0 for _ in range(size)] for _ in range(size)]
+    vector = [0.0 for _ in range(size)]
+
+    for point in points:
+        x = point["x"]
+        y = point[value_key]
+        powers = [1.0]
+        for _ in range(1, size * 2):
+            powers.append(powers[-1] * x)
+
+        for row in range(size):
+            for col in range(size):
+                matrix[row][col] += powers[row + col]
+            vector[row] += y * powers[row]
+
+    return solve_linear_system(matrix, vector)
+
+
+def evaluate_polynomial(coefficients, x):
+    result = 0.0
+    power = 1.0
+    for coefficient in coefficients:
+        result += coefficient * power
+        power *= x
+    return result
+
+
+def build_trend_rows(rows, group):
+    fit_points = []
+    for row in rows:
+        x = to_number(row.get(group))
+        dem = to_number(row.get("dem_share"))
+        rep = to_number(row.get("rep_share"))
+        if x is None or dem is None or rep is None:
+            continue
+        fit_points.append({"x": x, "dem": dem, "rep": rep})
+
+    if len(fit_points) < TREND_DEGREE + 1:
+        return {"dem_coefficients": [], "rep_coefficients": [], "trend_rows": []}
+
+    dem_coefficients = fit_polynomial(fit_points, "dem", TREND_DEGREE)
+    rep_coefficients = fit_polynomial(fit_points, "rep", TREND_DEGREE)
+    if dem_coefficients is None or rep_coefficients is None:
+        return {"dem_coefficients": [], "rep_coefficients": [], "trend_rows": []}
+
+    trend_rows = []
+    for index in range(TREND_POINT_COUNT):
+        x = index / (TREND_POINT_COUNT - 1)
+        dem_trend = clamp01(evaluate_polynomial(dem_coefficients, x)) * 100.0
+        rep_trend = clamp01(evaluate_polynomial(rep_coefficients, x)) * 100.0
+        trend_rows.append(
+            {
+                "x": x * 100.0,
+                "demTrendPct": dem_trend,
+                "repTrendPct": rep_trend,
+            }
+        )
+
+    return {
+        "dem_coefficients": dem_coefficients,
+        "rep_coefficients": rep_coefficients,
+        "trend_rows": trend_rows,
+    }
+
+
+def build_backend_group(rows, group):
+    sampled_rows = sample_rows_for_render(rows, group)
+    points = []
+    for row in sampled_rows:
+        x = to_number(row.get(group))
+        dem_share = to_number(row.get("dem_share"))
+        rep_share = to_number(row.get("rep_share"))
+        pid = row.get("pid")
+        if x is None or dem_share is None or rep_share is None:
+            continue
+        points.append(
+            {
+                "pid": pid,
+                "x": x * 100.0,
+                "demSharePct": dem_share * 100.0,
+                "repSharePct": rep_share * 100.0,
+            }
+        )
+
+    trend = build_trend_rows(rows, group)
+    return {
+        "label": GROUP_LABELS.get(group, group),
+        "modelType": "cubic_polynomial",
+        "totalPointCount": len(rows),
+        "renderPointCount": len(points),
+        "demCoefficients": trend["dem_coefficients"],
+        "repCoefficients": trend["rep_coefficients"],
+        "points": points,
+        "trendRows": trend["trend_rows"],
+    }
+
+
+def build_backend_payload(states):
+    payload = {}
+    for state_code, state in sorted(states.items()):
+        rows = state["points"]
+        payload[state_code] = {
+            "groups": {
+                group: build_backend_group(rows, group)
+                for group in GROUPS
+            }
+        }
+    return payload
 
 
 def resolve_pid(props, index):
@@ -143,6 +346,11 @@ def parse_args(argv=None):
         help=f"Input GeoJSON file/dir/glob (repeatable). Default: {DEFAULT_INPUT}",
     )
     parser.add_argument("--outdir", default="public/data", help="Output directory.")
+    parser.add_argument(
+        "--backend-output",
+        default="backend/src/main/resources/gingles-analysis.json",
+        help="Backend output JSON file for precomputed Gingles analysis.",
+    )
     return parser.parse_args(argv)
 
 
@@ -157,6 +365,7 @@ def new_state_bucket():
 def main(argv=None):
     args = parse_args(argv)
     outdir = Path(args.outdir)
+    backend_output = Path(args.backend_output)
     input_paths = resolve_input_paths(args.inputs or [DEFAULT_INPUT])
     if not input_paths:
         print(f"[error] No input files resolved from: {args.inputs or [DEFAULT_INPUT]}", file=sys.stderr)
@@ -236,10 +445,19 @@ def main(argv=None):
             },
         )
 
+    write_json(
+        backend_output,
+        {
+            "generated_at_utc": generated_at,
+            "states": build_backend_payload(states),
+        },
+    )
+
     print(f"[ok] Wrote {len(points)} rows -> {outdir / 'gingles_points.json'}")
     print(f"[ok] Wrote meta -> {outdir / 'gingles_meta.json'}")
     for state_code in sorted(states):
         print(f"[ok] Wrote state meta ({state_code}) -> {outdir / f'gingles_meta_{state_code}.json'}")
+    print(f"[ok] Wrote backend analysis -> {backend_output}")
     return 0
 
 
