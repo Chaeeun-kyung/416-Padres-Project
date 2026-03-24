@@ -4,7 +4,7 @@ import pandas as pd
 
 
 def main() -> None:
-    prec_path = "../data/CO-precincts-with-results.geojson"
+    prec_path = "data/CO-precincts-with-results.geojson"
     block_path = "co_pl2020_b/co_pl2020_p4_b.shp"
     cvap_path = "co_cvap_2024_2020_b_csv/co_cvap_2024_2020_b.csv"
     out_path = "public/geojson/CO-precincts-with-results-cvap.geojson"
