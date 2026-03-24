@@ -11,6 +11,7 @@ import EnsembleSplits from './charts/EnsembleSplits'
 import GinglesScatter from './charts/GinglesScatter'
 import EICurve from './charts/EICurve'
 import EnsembleBoxplot from './charts/EnsembleBoxplot'
+import { fetchStateSummary } from '../services/summaryApi'
 
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
@@ -33,6 +34,13 @@ const RIGHT_PANEL_VIEW_OPTIONS = [
 const ENSEMBLE_VIEW_OPTIONS = [
   { value: 'splits', label: 'Split Bars' },
   { value: 'boxplot', label: 'Box & Whisker' },
+]
+
+const POLITICAL_CHART_HEIGHT = 180
+
+const SUMMARY_SECTION_OPTIONS = [
+  { value: 'demographic', label: 'Demographic' },
+  { value: 'political', label: 'Political' },
 ]
 
 // Number formatting helper for summary tables.
@@ -102,19 +110,15 @@ function PopulationSummaryTable({ cvapTotal, districtCount, loading }) {
   )
 }
 
-// Single-line display for current redistricting control/process owner.
-function RedistrictingProcessTable({ summary }) {
-  return (
-    <div className="small-text" style={{ marginBottom: 4, lineHeight: 1.45 }}>
-      <span>{summary?.redistrictingControl ?? 'N/A'}</span>
-    </div>
-  )
+function formatRedistrictingControl(summary, loading) {
+  if (summary?.redistrictingControl) {
+    return summary.redistrictingControl
+  }
+  return loading ? 'Loading...' : 'N/A'
 }
 
 // Two-view section (table/chart) for party seat allocation.
-function CongressionalPartySummarySection({ summary }) {
-  const [chartView, setChartView] = useState(false)
-
+function CongressionalPartySummarySection({ summary, chartView }) {
   const tableRows = useMemo(() => {
     const demSeats = Number(summary?.congressionalPartySummary?.democrats)
     const repSeats = Number(summary?.congressionalPartySummary?.republicans)
@@ -135,15 +139,6 @@ function CongressionalPartySummarySection({ summary }) {
 
   return (
     <>
-      <div className="small-text muted-text" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span>{chartView ? 'Chart view' : 'Table view'}</span>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span className="small-text">Table</span>
-          <ToggleSwitch checked={chartView} onChange={setChartView} ariaLabel="Toggle congressional party summary view" />
-          <span className="small-text">Chart</span>
-        </div>
-      </div>
-
       {!tableRows.length && (
         <div className="small-text muted-text" style={{ marginBottom: 8 }}>
           No congressional party summary data.
@@ -179,7 +174,7 @@ function CongressionalPartySummarySection({ summary }) {
       )}
 
       {tableRows.length > 0 && chartView && (
-        <div style={{ width: '100%', height: 220, marginBottom: 8 }}>
+        <div style={{ width: '100%', height: POLITICAL_CHART_HEIGHT, marginBottom: 8 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={tableRows} margin={{ top: 8, right: 10, bottom: 10, left: 2 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -200,8 +195,7 @@ function CongressionalPartySummarySection({ summary }) {
 }
 
 // Two-view section (table/chart) for statewide CVAP racial composition.
-function RacialGroupsSection({ summary, loading }) {
-  const [chartView, setChartView] = useState(false)
+function RacialGroupsSection({ summary, loading, chartView }) {
 
   const rows = useMemo(() => {
     const computedRows = []
@@ -236,14 +230,6 @@ function RacialGroupsSection({ summary, loading }) {
     <>
       <div className="small-text muted-text" style={{ marginBottom: 4 }}>
         Statewide CVAP shares by racial/ethnic group.
-      </div>
-      <div className="small-text muted-text" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span>{chartView ? 'Chart view' : 'Table view'}</span>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span className="small-text">Table</span>
-          <ToggleSwitch checked={chartView} onChange={setChartView} ariaLabel="Toggle racial groups view" />
-          <span className="small-text">Chart</span>
-        </div>
       </div>
 
       {loading && rows.length === 0 && (
@@ -307,32 +293,46 @@ function RacialGroupsSection({ summary, loading }) {
   )
 }
 
-// Summary table for ensemble counts and population-equality metadata.
-function EnsembleSummaryTable({ summary }) {
-  const rows = [
-    { label: 'Race-blind plans', value: summary?.ensembleSummary?.raceBlindPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.raceBlindPlans ?? 'N/A' },
-    { label: 'VRA-constrained plans', value: summary?.ensembleSummary?.vraConstrainedPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.vraConstrainedPlans ?? 'N/A' },
-    { label: 'Population Equality Threshold', value: summary?.ensembleSummary?.populationEqualityThresholdLabel ?? 'N/A' },
+function EnsembleSummaryStrip({ summary }) {
+  const items = [
+    {
+      label: 'Race-blind plans',
+      value: summary?.ensembleSummary?.raceBlindPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.raceBlindPlans ?? 'N/A',
+    },
+    {
+      label: 'VRA-constrained plans',
+      value: summary?.ensembleSummary?.vraConstrainedPlans?.toLocaleString?.() ?? summary?.ensembleSummary?.vraConstrainedPlans ?? 'N/A',
+    },
+    {
+      label: 'Population threshold',
+      value: summary?.ensembleSummary?.populationEqualityThresholdLabel ?? 'N/A',
+    },
   ]
 
   return (
-    <div style={{ width: '100%', overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
-        <thead>
-          <tr style={{ borderBottom: '1px solid var(--ui-border)', textAlign: 'left' }}>
-            <th style={{ padding: 6 }}>Metric</th>
-            <th style={{ padding: 6, textAlign: 'right' }}>Value</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.label} style={{ borderBottom: '1px solid var(--ui-border)' }}>
-              <td style={{ padding: 6 }}>{row.label}</td>
-              <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>{row.value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: 8,
+        marginBottom: 10,
+      }}
+    >
+      {items.map((item) => (
+        <div
+          key={item.label}
+          style={{
+            border: '1px solid var(--ui-border)',
+            borderRadius: 10,
+            padding: '8px 10px',
+            background: '#f8fafc',
+            minWidth: 0,
+          }}
+        >
+          <div className="small-text muted-text" style={{ marginBottom: 3 }}>{item.label}</div>
+          <div className="small-text" style={{ fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>{item.value}</div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -368,8 +368,7 @@ function DistrictDatasetDetailsTable({ details }) {
     </div>
   )
 }
-function VoterDistributionSection({ summary, loading }) {
-  const [chartView, setChartView] = useState(false)
+function VoterDistributionSection({ summary, loading, chartView }) {
 
   const { tableRows, totalVotes } = useMemo(() => {
     const demVotes = Number(summary?.voterDistribution?.demVotes)
@@ -414,15 +413,6 @@ function VoterDistributionSection({ summary, loading }) {
 
   return (
     <>
-      <div className="small-text muted-text" style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span>{chartView ? 'Chart view' : 'Table view'}</span>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-          <span className="small-text">Table</span>
-          <ToggleSwitch checked={chartView} onChange={setChartView} ariaLabel="Toggle voter distribution view" />
-          <span className="small-text">Chart</span>
-        </div>
-      </div>
-
       {loading && <div className="small-text muted-text" style={{ marginBottom: 8 }}>Loading statewide vote distribution from the backend...</div>}
 
       {!loading && totalVotes <= 0 && (
@@ -464,7 +454,7 @@ function VoterDistributionSection({ summary, loading }) {
       )}
 
       {!loading && totalVotes > 0 && chartView && (
-        <div style={{ width: '100%', height: 220, marginBottom: 8 }}>
+        <div style={{ width: '100%', height: POLITICAL_CHART_HEIGHT, marginBottom: 8 }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartRows} margin={{ top: 8, right: 10, bottom: 10, left: 2 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -494,6 +484,9 @@ function isValidRightPanelView(view) {
 }
 
 function MapSummaryCards({ summary, loading }) {
+  const [chartView, setChartView] = useState(false)
+  const [summarySection, setSummarySection] = useState('demographic')
+
   if (!summary) {
     return (
       <Card title="Summary">
@@ -504,32 +497,52 @@ function MapSummaryCards({ summary, loading }) {
 
   return (
     <>
-      <Card title="Population Overview">
-        <PopulationSummaryTable
-          cvapTotal={summary?.votingAgePopulation}
-          districtCount={summary?.districts}
-          loading={loading}
-        />
-      </Card>
+      <Card
+        title="State Summary"
+        actions={(
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <span className="small-text muted-text">Table</span>
+            <ToggleSwitch checked={chartView} onChange={setChartView} ariaLabel="Toggle state summary table or chart view" />
+            <span className="small-text muted-text">Chart</span>
+          </div>
+        )}
+      >
+        <div style={{ marginBottom: 8 }}>
+          <SegmentedControl
+            ariaLabel="State summary section selector"
+            value={summarySection}
+            onChange={setSummarySection}
+            options={SUMMARY_SECTION_OPTIONS}
+          />
+        </div>
 
-      <Card title="Voter Distribution">
-        <VoterDistributionSection summary={summary} loading={loading} />
-      </Card>
+        {summarySection === 'demographic' && (
+          <>
+            <div className="small-text muted-text" style={{ marginBottom: 6 }}>Population Overview</div>
+            <PopulationSummaryTable
+              cvapTotal={summary?.votingAgePopulation}
+              districtCount={summary?.districts}
+              loading={loading}
+            />
+            <div className="small-text muted-text" style={{ marginBottom: 6 }}>Racial Groups</div>
+            <RacialGroupsSection summary={summary} loading={loading} chartView={chartView} />
+          </>
+        )}
 
-      <Card title="Racial Groups">
-        <RacialGroupsSection summary={summary} loading={loading} />
+        {summarySection === 'political' && (
+          <>
+            <div className="small-text muted-text" style={{ marginBottom: 6 }}>Voter Distribution</div>
+            <VoterDistributionSection summary={summary} loading={loading} chartView={chartView} />
+            <div className="small-text muted-text" style={{ marginBottom: 6 }}>Congressional Party</div>
+            <CongressionalPartySummarySection summary={summary} chartView={chartView} />
+          </>
+        )}
       </Card>
 
       <Card title="Redistricting Process">
-        <RedistrictingProcessTable summary={summary} />
-      </Card>
-
-      <Card title="Congressional Party">
-        <CongressionalPartySummarySection summary={summary} />
-      </Card>
-
-      <Card title="Ensemble Summary">
-        <EnsembleSummaryTable summary={summary} />
+        <div className="small-text" style={{ lineHeight: 1.45 }}>
+          {formatRedistrictingControl(summary, loading)}
+        </div>
       </Card>
     </>
   )
@@ -583,8 +596,9 @@ function RightPanelPageOne({
 
       {activeView === 'Ensembles' && (
         <Card title="Ensemble Analysis">
-          <div style={{ width: '100%', height: 'min(72vh, 700px)', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ width: 360, maxWidth: '100%' }}>
+          <div style={{ width: '100%', height: 'min(68vh, 620px)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <EnsembleSummaryStrip summary={summary} />
+            <div style={{ width: 360, maxWidth: '100%', marginBottom: 2 }}>
               <SegmentedControl
                 ariaLabel="Ensemble chart selector"
                 value={ensembleView}
@@ -638,9 +652,8 @@ function RightDetails({ selectedStateCode, precinctGeojson, loading }) {
 
       setSummaryLoading(true)
       try {
-        // Ask Spring for the selected state's summary and render the response directly.
-        const response = await axios.get(`/api/states/${selectedStateCode}/summary`)
-        const nextSummary = response.data
+        // Reuse cached state summary requests so left/right panel don't duplicate network calls.
+        const nextSummary = await fetchStateSummary(selectedStateCode)
         if (!cancelled) {
           setSummary(nextSummary)
         }

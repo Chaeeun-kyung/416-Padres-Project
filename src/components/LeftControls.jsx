@@ -1,24 +1,21 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import useAppStore from '../store/useAppStore'
 import Card from '../ui/components/Card'
 import Select from '../ui/components/Select'
 import ToggleSwitch from '../ui/components/ToggleSwitch'
 import metricConfig from '../data/mock/metricConfig.json'
+import { fetchStateSummary } from '../services/summaryApi'
 
 const STATE_OPTIONS = [
   { value: 'CO', label: 'Colorado (CO)' },
   { value: 'AZ', label: 'Arizona (AZ)' },
 ]
 const PRECINCT_DATA_OPTIONS = [
-  { value: 'enacted', label: 'Enacted + CVAP' },
-  { value: 'cvap', label: 'Original CVAP only' },
+  { value: 'enacted', label: 'Enacted Plan' },
 ]
-const HEATMAP_OPTIONS = [
-  { value: '', label: 'None' },
-  ...metricConfig
-    .filter((metric) => metric.key !== 'pct_dem_lead')
-    .map((metric) => ({ value: metric.key, label: metric.label })),
-]
+const FEASIBLE_GROUP_MIN_MILLIONS = 0.4
+const FEASIBLE_GROUP_KEYS = ['white_pct', 'latino_pct']
+const HEATMAP_BASE_OPTIONS = metricConfig.filter((metric) => metric.key !== 'pct_dem_lead')
 
 // Guards against stale selections after state/data changes.
 // If selected metric is no longer available, fall back to None.
@@ -47,9 +44,46 @@ function LeftControls() {
   const activeMetric = useAppStore((state) => state.activeMetric)
   const setActiveMetric = useAppStore((state) => state.setActiveMetric)
   const setPrecinctDataVariant = useAppStore((state) => state.setPrecinctDataVariant)
-  const metricOptions = HEATMAP_OPTIONS
+  const [feasibleGroupKeys, setFeasibleGroupKeys] = useState(FEASIBLE_GROUP_KEYS)
+  const metricOptions = useMemo(() => ([
+    { value: '', label: 'None' },
+    ...HEATMAP_BASE_OPTIONS
+      .filter((metric) => feasibleGroupKeys.includes(metric.key))
+      .map((metric) => ({ value: metric.key, label: metric.label })),
+  ]), [feasibleGroupKeys])
   const firstAvailableMetric = metricOptions.find((option) => option.value)?.value ?? ''
   const effectiveMetric = getEffectiveMetric(metricOptions, activeMetric)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadFeasibleGroups() {
+      if (!selectedStateCode) {
+        setFeasibleGroupKeys(FEASIBLE_GROUP_KEYS)
+        return
+      }
+
+      try {
+        const summary = await fetchStateSummary(selectedStateCode)
+        const millions = summary?.racialEthnicPopulationMillions ?? {}
+        const nextKeys = FEASIBLE_GROUP_KEYS.filter((key) => Number(millions[key]) > FEASIBLE_GROUP_MIN_MILLIONS)
+        if (!cancelled) {
+          // Enforce feasible-only options.
+          setFeasibleGroupKeys(nextKeys)
+        }
+      } catch {
+        if (!cancelled) {
+          setFeasibleGroupKeys([])
+        }
+      }
+    }
+
+    loadFeasibleGroups()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedStateCode])
 
   // If selected metric disappears after a state/data change, auto-correct it.
   useEffect(() => {
@@ -67,20 +101,6 @@ function LeftControls() {
           onChange={setSelectedStateCode}
           options={STATE_OPTIONS}
         />
-      </Card>
-
-      <Card title="Precinct Dataset" subtitle="- Switch between original and enacted-plan data">
-        <Select
-          ariaLabel="Precinct dataset selector"
-          value={precinctDataVariant}
-          onChange={setPrecinctDataVariant}
-          options={PRECINCT_DATA_OPTIONS}
-        />
-        <div className="small-text muted-text" style={{ marginTop: 8, lineHeight: 1.45 }}>
-          {precinctDataVariant === 'cvap'
-            ? 'Original CVAP only includes precinct voting and demographic data.'
-            : 'Enacted + CVAP also includes enacted congressional district assignment fields.'}
-        </div>
       </Card>
 
       <Card title="Boundaries">
@@ -110,6 +130,18 @@ function LeftControls() {
       <Card title="Congressional Representation">
         <div className="small-text muted-text">
           - Click a district to view details in the table on the right.
+        </div>
+      </Card>
+
+      <Card title="Plan Selection" subtitle="- Choose which district plan to display">
+        <Select
+          ariaLabel="Plan selector"
+          value={precinctDataVariant}
+          onChange={setPrecinctDataVariant}
+          options={PRECINCT_DATA_OPTIONS}
+        />
+        <div className="small-text muted-text" style={{ marginTop: 8, lineHeight: 1.45 }}>
+          Currently available: Enacted Plan (default).
         </div>
       </Card>
     </aside>

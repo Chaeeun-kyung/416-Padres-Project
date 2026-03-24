@@ -150,7 +150,7 @@ public class AnalysisService {
 
   private String normalizeStateCode(String stateCode) {
     if (stateCode == null || stateCode.isBlank()) {
-      throw new ResourceNotFoundException("State code is required");
+      throw new BadRequestException("State code is required");
     }
     return stateCode.trim().toUpperCase();
   }
