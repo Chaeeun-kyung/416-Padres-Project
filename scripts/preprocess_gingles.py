@@ -1,6 +1,6 @@
-# Gingles chart data: preprocess precinct GeoJSON to extract relevant fields, compute
+# Gingles chart data: preprocess precinct GeoJSON to extract relevant fields, compute.
 # chart-ready samples, and precompute regression metadata for the backend.
-# 2024 Presidential election results and CVAP demographics (2024 ACS)
+# 2024 Presidential election results and CVAP demographics (2024 ACS).
 
 import argparse
 import glob
@@ -20,6 +20,8 @@ TREND_POINT_COUNT = 90
 BACKEND_RENDER_POINT_LIMIT = 1000
 BACKEND_SAMPLE_BIN_COUNT = 28
 
+# Convert raw property values safely into finite numbers.
+# Keep share values in [0, 1] so downstream chart math stays stable.
 
 def to_number(value):
     try:
@@ -28,7 +30,7 @@ def to_number(value):
         return None
     return number if math.isfinite(number) else None
 
-
+# Find valid keys for a desired numeric property, since different sources use different schemas.
 def pick_number(props, keys):
     for key in keys:
         number = to_number(props.get(key))
@@ -36,11 +38,14 @@ def pick_number(props, keys):
             return number
     return None
 
-
+# Range: 0~1.
 def clamp01(value):
     return max(0.0, min(1.0, value))
+  
+# Precinct files can be very large, so we cap rendered scatter points.
+# Stratified bin sampling keeps x-axis coverage representative.
 
-
+# To make even plots from uneven bins.
 def pick_evenly(items, count):
     if count <= 0 or not items:
         return []
@@ -56,7 +61,7 @@ def pick_evenly(items, count):
         cursor += stride
     return picked
 
-
+# Pick a representative subset of rows for rendering, with a hard cap on total points.
 def sample_rows_for_render(rows, group, max_rows=BACKEND_RENDER_POINT_LIMIT, bin_count=BACKEND_SAMPLE_BIN_COUNT):
     if not isinstance(rows, list) or len(rows) <= max_rows:
         return list(rows or [])
@@ -92,7 +97,11 @@ def sample_rows_for_render(rows, group, max_rows=BACKEND_RENDER_POINT_LIMIT, bin
 
     return sampled[:max_rows]
 
+# Build cubic regression curves for Dem/Rep shares against group CVAP share.
+# Uses a small linear-system solver so preprocessing remains self-contained.
 
+# This function solves the normal-equation system used to fit the polynomial trend line coefficients.
+# It uses Gaussian elimination.
 def solve_linear_system(matrix, vector):
     n = len(vector)
     augmented = [list(row) + [vector[index]] for index, row in enumerate(matrix)]
@@ -125,7 +134,7 @@ def solve_linear_system(matrix, vector):
 
     return [augmented[row][n] for row in range(n)]
 
-
+# Fit a polynomial of the given degree to the points, using the specified value key for y-values.
 def fit_polynomial(points, value_key, degree):
     size = degree + 1
     matrix = [[0.0 for _ in range(size)] for _ in range(size)]
@@ -154,7 +163,8 @@ def evaluate_polynomial(coefficients, x):
         power *= x
     return result
 
-
+# Build trend rows for a state/group by fitting polynomial curves and evaluating them at regular x intervals.
+# This helps the frontend render smooth trend lines without needing to fit polynomials in-browser, which can be expensive.
 def build_trend_rows(rows, group):
     fit_points = []
     for row in rows:
@@ -192,6 +202,8 @@ def build_trend_rows(rows, group):
         "trend_rows": trend_rows,
     }
 
+# Convert sampled points + trend rows into API-ready state/group objects.
+# Output shape matches backend Gingles response contract.
 
 def build_backend_group(rows, group):
     sampled_rows = sample_rows_for_render(rows, group)
@@ -224,7 +236,7 @@ def build_backend_group(rows, group):
         "trendRows": trend["trend_rows"],
     }
 
-
+# Make sure backend payload is structured by state and group, with sampled points and pre-fitted trend data for each group.
 def build_backend_payload(states):
     payload = {}
     for state_code, state in sorted(states.items()):
@@ -237,6 +249,9 @@ def build_backend_payload(states):
         }
     return payload
 
+# GeoJSON property extraction
+# Resolve IDs/state codes from heterogeneous source field names.
+# Compute one normalized precinct row used by all downstream outputs.
 
 def resolve_pid(props, index):
     for key in ("GEOID", "geoid", "PRECINCT", "precinct", "precinct_id", "pid", "id"):
@@ -262,7 +277,7 @@ def resolve_state(props):
         return None
     return STATE_FIPS_TO_CODE.get(str(fips).zfill(2))
 
-
+# Compute row values for a precinct, extracting and normalizing vote shares and CVAP demographics.
 def compute_point(props, index, state_code=None):
     dem_votes = pick_number(props, ("votes_dem", "dem_votes", "DEM_VOTES"))
     rep_votes = pick_number(props, ("votes_rep", "rep_votes", "REP_VOTES"))
@@ -294,6 +309,8 @@ def compute_point(props, index, state_code=None):
         row["state"] = state_code
     return row
 
+# Handle stable JSON writing and flexible input path resolution.
+# Support file, directory, and glob inputs.
 
 def value_range(rows, field):
     values = [to_number(row.get(field)) for row in rows]
@@ -361,6 +378,11 @@ def new_state_bucket():
         "counts": {"features_in_input": 0, "kept": 0, "dropped": 0},
     }
 
+# Main preprocessing pipeline
+# 1. Resolve input GeoJSON files
+# 2. Parse and normalize precinct rows
+# 3. Emit compact point/meta artifacts for frontend inspection
+# 4. Emit backend analysis payload used by API responses
 
 def main(argv=None):
     args = parse_args(argv)
@@ -377,6 +399,7 @@ def main(argv=None):
     dropped = 0
 
     for input_path in input_paths:
+        # Load one GeoJSON input and stream features into state buckets.
         if not input_path.exists():
             print(f"[warn] Input file not found (skipping): {input_path}", file=sys.stderr)
             continue
@@ -432,6 +455,7 @@ def main(argv=None):
     )
 
     for state_code in sorted(states):
+        # Write per-state summary metadata to help validate preprocessing quality.
         state = states[state_code]
         write_json(
             outdir / f"gingles_meta_{state_code}.json",
