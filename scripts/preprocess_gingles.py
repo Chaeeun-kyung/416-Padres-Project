@@ -17,8 +17,6 @@ GROUPS = ["white_pct", "latino_pct"]
 GROUP_LABELS = {"white_pct": "White", "latino_pct": "Latino"}
 TREND_DEGREE = 3
 TREND_POINT_COUNT = 90
-BACKEND_RENDER_POINT_LIMIT = 1000
-BACKEND_SAMPLE_BIN_COUNT = 28
 
 # Convert raw property values safely into finite numbers.
 # Keep share values in [0, 1] so downstream chart math stays stable.
@@ -42,60 +40,11 @@ def pick_number(props, keys):
 def clamp01(value):
     return max(0.0, min(1.0, value))
   
-# Precinct files can be very large, so we cap rendered scatter points.
-# Stratified bin sampling keeps x-axis coverage representative.
-
-# To make even plots from uneven bins.
-def pick_evenly(items, count):
-    if count <= 0 or not items:
+# Return all rows for chart rendering (GUI-9 requires plotting all precinct points).
+def rows_for_render(rows):
+    if not isinstance(rows, list):
         return []
-    if count >= len(items):
-        return list(items)
-
-    picked = []
-    stride = len(items) / count
-    cursor = 0.0
-    for _ in range(count):
-        index = min(len(items) - 1, int(cursor))
-        picked.append(items[index])
-        cursor += stride
-    return picked
-
-# Pick a representative subset of rows for rendering, with a hard cap on total points.
-def sample_rows_for_render(rows, group, max_rows=BACKEND_RENDER_POINT_LIMIT, bin_count=BACKEND_SAMPLE_BIN_COUNT):
-    if not isinstance(rows, list) or len(rows) <= max_rows:
-        return list(rows or [])
-
-    bins = [[] for _ in range(bin_count)]
-    for row in rows:
-        x = to_number(row.get(group))
-        if x is None:
-            continue
-        bin_index = max(0, min(bin_count - 1, int(x * bin_count)))
-        bins[bin_index].append(row)
-
-    non_empty_bins = [bucket for bucket in bins if bucket]
-    if not non_empty_bins:
-        return list(rows[:max_rows])
-
-    sampled = []
-    base_quota = max(1, max_rows // len(non_empty_bins))
-    remaining = max_rows
-    leftovers = []
-
-    for bucket in non_empty_bins:
-        take = min(len(bucket), base_quota)
-        chosen = pick_evenly(bucket, take)
-        sampled.extend(chosen)
-        remaining -= len(chosen)
-        if len(bucket) > take:
-            chosen_ids = {id(item) for item in chosen}
-            leftovers.extend(item for item in bucket if id(item) not in chosen_ids)
-
-    if remaining > 0 and leftovers:
-        sampled.extend(pick_evenly(leftovers, min(remaining, len(leftovers))))
-
-    return sampled[:max_rows]
+    return list(rows)
 
 # Build cubic regression curves for Dem/Rep shares against group CVAP share.
 # Uses a small linear-system solver so preprocessing remains self-contained.
@@ -202,13 +151,13 @@ def build_trend_rows(rows, group):
         "trend_rows": trend_rows,
     }
 
-# Convert sampled points + trend rows into API-ready state/group objects.
+# Convert full precinct points + trend rows into API-ready state/group objects.
 # Output shape matches backend Gingles response contract.
 
 def build_backend_group(rows, group):
-    sampled_rows = sample_rows_for_render(rows, group)
+    render_rows = rows_for_render(rows)
     points = []
-    for row in sampled_rows:
+    for row in render_rows:
         x = to_number(row.get(group))
         dem_share = to_number(row.get("dem_share"))
         rep_share = to_number(row.get("rep_share"))
