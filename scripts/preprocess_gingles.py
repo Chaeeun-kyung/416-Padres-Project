@@ -162,7 +162,19 @@ def build_backend_group(rows, group):
         dem_share = to_number(row.get("dem_share"))
         rep_share = to_number(row.get("rep_share"))
         pid = row.get("pid")
-        if x is None or dem_share is None or rep_share is None:
+        democratic_votes = to_number(row.get("democratic_votes"))
+        republican_votes = to_number(row.get("republican_votes"))
+        total_population = to_number(row.get("total_population"))
+        minority_non_white_population = to_number(row.get("minority_non_white_population"))
+        if (
+            x is None
+            or dem_share is None
+            or rep_share is None
+            or democratic_votes is None
+            or republican_votes is None
+            or total_population is None
+            or minority_non_white_population is None
+        ):
             continue
         points.append(
             {
@@ -170,6 +182,10 @@ def build_backend_group(rows, group):
                 "x": x * 100.0,
                 "demSharePct": dem_share * 100.0,
                 "repSharePct": rep_share * 100.0,
+                "democraticVotes": democratic_votes,
+                "republicanVotes": republican_votes,
+                "totalPopulation": total_population,
+                "minorityNonWhitePopulation": minority_non_white_population,
             }
         )
 
@@ -245,12 +261,22 @@ def compute_point(props, index, state_code=None):
     if white_cvap < 0 or latino_cvap < 0:
         return None
 
+    # GUI-10 table population fields are CVAP-based by project convention.
+    # Use CVAP totals directly (no alternate population-column fallback).
+    total_population = total_cvap
+    latino_population = latino_cvap
+    minority_non_white_population = max(0.0, min(latino_population, total_population))
+
     row = {
         "pid": resolve_pid(props, index),
         "dem_share": clamp01(dem_votes / total_votes),
         "rep_share": clamp01(rep_votes / total_votes),
         "white_pct": clamp01(white_cvap / total_cvap),
         "latino_pct": clamp01(latino_cvap / total_cvap),
+        "democratic_votes": dem_votes,
+        "republican_votes": rep_votes,
+        "total_population": total_population,
+        "minority_non_white_population": minority_non_white_population,
     }
     if state_code is None:
         state_code = resolve_state(props)

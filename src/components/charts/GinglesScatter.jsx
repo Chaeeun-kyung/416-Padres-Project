@@ -131,10 +131,7 @@ function GinglesScatter({ stateCode }) {
     return { x, demY, repY }
   }, [trendRows])
 
-  const plottedPoints = plotSeries.x.length
-  const totalPoints = Number.isFinite(Number(analysis?.totalPointCount))
-    ? Number(analysis.totalPointCount)
-    : plottedPoints
+  const plottedPrecincts = plotSeries.x.length
 
   if (loading) {
     return <div className="small-text muted-text">Loading Gingles analysis from the backend...</div>
@@ -144,7 +141,7 @@ function GinglesScatter({ stateCode }) {
     return <div className="small-text muted-text">Failed to load Gingles data: {error}</div>
   }
 
-  if (!plottedPoints) {
+  if (!plottedPrecincts) {
     return <div className="small-text muted-text">No Gingles points available for {stateCode}.</div>
   }
 
@@ -220,7 +217,7 @@ function GinglesScatter({ stateCode }) {
             )}
           />
           <div className="small-text muted-text">
-            {`Showing ${plottedPoints.toLocaleString()} / ${totalPoints.toLocaleString()} precinct points`}
+            {`Showing ${plottedPrecincts.toLocaleString()} precincts`}
           </div>
         </div>
         <div style={{ width: 190 }}>
