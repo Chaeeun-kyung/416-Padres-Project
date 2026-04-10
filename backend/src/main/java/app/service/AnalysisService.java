@@ -134,7 +134,13 @@ public class AnalysisService {
             point.pid(),
             point.x(),
             point.demSharePct(),
-            point.repSharePct()
+            point.repSharePct(),
+            point.democraticVotes(),
+            point.republicanVotes(),
+            point.totalPopulation(),
+            point.whitePopulation(),
+            point.latinoPopulation(),
+            point.minorityNonWhitePopulation()
         ))
         .toList();
   }

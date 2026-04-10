@@ -580,7 +580,7 @@ function RightPanelPageOne({
 
       {activeView === 'Gingles' && (
         <Card title="">
-          <div style={{ width: '100%', height: 'min(72vh, 700px)' }}>
+          <div style={{ width: '100%', height: 'min(76vh, 760px)' }}>
             <GinglesScatter stateCode={selectedStateCode} />
           </div>
         </Card>

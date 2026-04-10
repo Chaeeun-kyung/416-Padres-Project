@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
-import { CartesianGrid, ComposedChart, Legend, Line, ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis, ZAxis } from 'recharts'
+import Plot from 'react-plotly.js'
 import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
+import GinglesPointsTable from '../tables/GinglesPointsTable'
 
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
@@ -12,52 +13,13 @@ const FALLBACK_GROUP_OPTIONS = [
 ]
 const ginglesAnalysisCache = new Map()
 
-function formatPct(value) {
-  return Number.isFinite(value) ? `${value.toFixed(1)}%` : 'N/A'
-}
-
-function TooltipCard({ active, payload, groupLabel }) {
-  if (active === false || !payload?.length) return null
-  const rowCandidate = payload.find((item) => item?.payload)?.payload ?? payload[0]?.payload
-  const row = rowCandidate?.payload ?? rowCandidate
-  if (!row) return null
-
-  return (
-    <div
-      style={{
-        background: '#fff',
-        border: '1px solid #dfe3ea',
-        borderRadius: 10,
-        padding: '8px 10px',
-        boxShadow: '0 4px 14px rgba(17, 24, 39, 0.08)',
-      }}
-    >
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>{row.pid ? `PID: ${row.pid}` : 'Trend point'}</div>
-      <div className="small-text muted-text">{groupLabel}: {formatPct(Number(row.x))}</div>
-      {Number.isFinite(Number(row.demSharePct)) && (
-        <div className="small-text" style={{ color: DEM_COLOR }}>Democratic vote share: {formatPct(row.demSharePct)}</div>
-      )}
-      {Number.isFinite(Number(row.repSharePct)) && (
-        <div className="small-text" style={{ color: REP_COLOR }}>Republican vote share: {formatPct(row.repSharePct)}</div>
-      )}
-      {Number.isFinite(Number(row.demTrendPct)) && (
-        <div className="small-text" style={{ color: DEM_COLOR }}>Democratic trend: {formatPct(row.demTrendPct)}</div>
-      )}
-      {Number.isFinite(Number(row.repTrendPct)) && (
-        <div className="small-text" style={{ color: REP_COLOR }}>Republican trend: {formatPct(row.repTrendPct)}</div>
-      )}
-    </div>
-  )
-}
-
-function HitCircle(props) {
-  const { cx, cy } = props ?? {}
-  if (!Number.isFinite(cx) || !Number.isFinite(cy)) return null
-  return <circle cx={cx} cy={cy} r={8} fill="rgba(0,0,0,0)" />
+function normalizePid(value) {
+  return String(value ?? '').trim()
 }
 
 function GinglesScatter({ stateCode }) {
   const [selectedGroup, setSelectedGroup] = useState('latino_pct')
+  const [selectedPid, setSelectedPid] = useState(null)
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -132,26 +94,171 @@ function GinglesScatter({ stateCode }) {
     ?? 'Selected Group'
 
   const chartRows = useMemo(() => (Array.isArray(analysis?.points) ? analysis.points : []), [analysis])
+  const trendRows = useMemo(() => (Array.isArray(analysis?.trendRows) ? analysis.trendRows : []), [analysis])
 
-  const trendRows = Array.isArray(analysis?.trendRows) ? analysis.trendRows : []
+  useEffect(() => {
+    setSelectedPid(null)
+  }, [selectedGroup, stateCode])
+
+  // Build dense point arrays once so Plotly/WebGL receives compact numeric series.
+  const plotSeries = useMemo(() => {
+    const x = []
+    const demY = []
+    const repY = []
+    const pid = []
+
+    for (const row of chartRows) {
+      const xVal = Number(row?.x)
+      const demVal = Number(row?.demSharePct)
+      const repVal = Number(row?.repSharePct)
+      const pidValue = normalizePid(row?.pid)
+      if (!Number.isFinite(xVal) || !Number.isFinite(demVal) || !Number.isFinite(repVal)) {
+        continue
+      }
+      if (!pidValue) {
+        continue
+      }
+      x.push(xVal)
+      demY.push(demVal)
+      repY.push(repVal)
+      pid.push(pidValue)
+    }
+
+    return { x, demY, repY, pid }
+  }, [chartRows])
+
+  const trendSeries = useMemo(() => {
+    const x = []
+    const demY = []
+    const repY = []
+    for (const row of trendRows) {
+      const xVal = Number(row?.x)
+      const demVal = Number(row?.demTrendPct)
+      const repVal = Number(row?.repTrendPct)
+      if (!Number.isFinite(xVal) || !Number.isFinite(demVal) || !Number.isFinite(repVal)) {
+        continue
+      }
+      x.push(xVal)
+      demY.push(demVal)
+      repY.push(repVal)
+    }
+    return { x, demY, repY }
+  }, [trendRows])
+
+  const plottedPrecincts = plotSeries.x.length
+
+  const handlePlotClick = (event) => {
+    const point = event?.points?.[0]
+    if (!point) {
+      return
+    }
+
+    if (point?.curveNumber !== 0 && point?.curveNumber !== 1) {
+      return
+    }
+
+    const rawPidFromPoint = Array.isArray(point.customdata) ? point.customdata[0] : point.customdata
+    const rawPidFromTrace = point?.data?.customdata?.[point?.pointNumber]
+    const rawPid = point?.id ?? rawPidFromPoint ?? rawPidFromTrace
+    const pid = normalizePid(rawPid)
+    if (!pid) {
+      return
+    }
+
+    // Chart click should always pin the corresponding row; no toggle-off on repeated events.
+    setSelectedPid(pid)
+  }
+
+  if (loading) {
+    return <div className="small-text muted-text">Loading Gingles analysis from the backend...</div>
+  }
+
+  if (error) {
+    return <div className="small-text muted-text">Failed to load Gingles data: {error}</div>
+  }
+
+  if (!plottedPrecincts) {
+    return <div className="small-text muted-text">No Gingles points available for {stateCode}.</div>
+  }
+
+  const demTrace = {
+    type: 'scattergl',
+    mode: 'markers',
+    name: 'Democratic vote share',
+    x: plotSeries.x,
+    y: plotSeries.demY,
+    customdata: plotSeries.pid,
+    ids: plotSeries.pid,
+    marker: {
+      color: DEM_COLOR,
+      size: 4,
+      opacity: 0.28,
+    },
+    hovertemplate:
+      `PID: %{customdata}<br>${activeGroupLabel}: %{x:.1f}%<br>Democratic vote share: %{y:.1f}%<extra></extra>`,
+  }
+
+  const repTrace = {
+    type: 'scattergl',
+    mode: 'markers',
+    name: 'Republican vote share',
+    x: plotSeries.x,
+    y: plotSeries.repY,
+    customdata: plotSeries.pid,
+    ids: plotSeries.pid,
+    marker: {
+      color: REP_COLOR,
+      size: 4,
+      opacity: 0.26,
+    },
+    hovertemplate:
+      `PID: %{customdata}<br>${activeGroupLabel}: %{x:.1f}%<br>Republican vote share: %{y:.1f}%<extra></extra>`,
+  }
+
+  const demTrendTrace = {
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Democratic trend',
+    x: trendSeries.x,
+    y: trendSeries.demY,
+    line: { color: DEM_COLOR, width: 2.2 },
+    hovertemplate:
+      `${activeGroupLabel}: %{x:.1f}%<br>Democratic trend: %{y:.1f}%<extra></extra>`,
+  }
+
+  const repTrendTrace = {
+    type: 'scatter',
+    mode: 'lines',
+    name: 'Republican trend',
+    x: trendSeries.x,
+    y: trendSeries.repY,
+    line: { color: REP_COLOR, width: 2.2 },
+    hovertemplate:
+      `${activeGroupLabel}: %{x:.1f}%<br>Republican trend: %{y:.1f}%<extra></extra>`,
+  }
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontWeight: 700 }}>Gingles Analysis</div>
           <Info
             label="Gingles chart info"
             text={(
               <>
-                Each point represents a precinct.
+                Each precinct is plotted as a blue Democratic point and a red Republican point.
                 <br />
-                The x-axis shows the percentage of a selected racial group in the precinct, and the y-axis shows the vote share for each party.
+                X-axis is selected racial/ethnic CVAP share; y-axis is party vote share.
                 <br />
-                This chart helps identify patterns of racially polarized voting.
+                Click a precinct dot to highlight the matching row in the table below.
+                <br />
+                Rendering uses WebGL so all precinct points can be displayed with lower UI lag.
               </>
             )}
           />
+          <div className="small-text muted-text">
+            {`Showing ${plottedPrecincts.toLocaleString()} precincts`}
+          </div>
         </div>
         <div style={{ width: 190 }}>
           <Select
@@ -163,105 +270,69 @@ function GinglesScatter({ stateCode }) {
         </div>
       </div>
 
-      {loading && (
-        <div className="small-text muted-text">Loading Gingles analysis from the backend...</div>
-      )}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateRows: 'minmax(390px, 1fr) minmax(248px, 248px)',
+          gap: 10,
+          height: 'calc(100% - 36px)',
+          minHeight: 0,
+        }}
+      >
+        <div style={{ minHeight: 0 }}>
+          <Plot
+            data={[demTrace, repTrace, demTrendTrace, repTrendTrace]}
+            layout={{
+              autosize: true,
+              margin: { l: 58, r: 12, t: 8, b: 52 },
+              showlegend: true,
+              legend: {
+                orientation: 'h',
+                x: 0,
+                y: 1.11,
+                traceorder: 'normal',
+                entrywidthmode: 'fraction',
+                entrywidth: 0.5,
+              },
+              hovermode: 'closest',
+              xaxis: {
+                range: [0, 100],
+                title: { text: `${activeGroupLabel} (CVAP %)` },
+                ticksuffix: '%',
+                automargin: true,
+              },
+              yaxis: {
+                range: [0, 100],
+                title: { text: 'Vote share (%)' },
+                ticksuffix: '%',
+                automargin: true,
+              },
+              paper_bgcolor: 'white',
+              plot_bgcolor: 'white',
+              uirevision: `${stateCode}:${effectiveGroup}`,
+            }}
+            config={{
+              displayModeBar: false,
+              displaylogo: false,
+              responsive: true,
+              scrollZoom: true,
+            }}
+            onClick={handlePlotClick}
+            useResizeHandler
+            style={{ width: '100%', height: '100%' }}
+          />
+        </div>
 
-      {!loading && error && (
-        <div className="small-text muted-text">Failed to load Gingles data: {error}</div>
-      )}
-
-      {!loading && !error && chartRows.length === 0 && (
-        <div className="small-text muted-text">No Gingles points available for {stateCode}.</div>
-      )}
-
-      {!loading && !error && chartRows.length > 0 && (
-        <ResponsiveContainer width="100%" height="88%">
-          <ComposedChart margin={{ top: 8, right: 20, bottom: 20, left: 8 }} data={chartRows}>
-            <CartesianGrid stroke="#e7e9ee" strokeDasharray="3 3" />
-            <XAxis
-              type="number"
-              dataKey="x"
-              name={activeGroupLabel}
-              domain={[0, 100]}
-              tickFormatter={(value) => `${value}%`}
-              label={{ value: `${activeGroupLabel} (CVAP %)`, position: 'insideBottom', dy: 10 }}
-            />
-            <YAxis
-              type="number"
-              domain={[0, 100]}
-              tickFormatter={(value) => `${value}%`}
-              label={{ value: 'Vote share (%)', angle: -90, position: 'insideLeft' }}
-            />
-            <ZAxis zAxisId={0} type="number" range={[20, 20]} />
-            <Tooltip
-              shared={false}
-              content={<TooltipCard groupLabel={activeGroupLabel} />}
-              allowEscapeViewBox={{ x: true, y: true }}
-              wrapperStyle={{ zIndex: 20 }}
-            />
-            <Legend wrapperStyle={{ bottom: 1 }} />
-            <Scatter
-              name="Democratic vote share"
-              data={chartRows}
-              dataKey="demSharePct"
-              fill={DEM_COLOR}
-              fillOpacity={0.28}
-              stroke="none"
-              isAnimationActive={false}
-            />
-            <Scatter
-              legendType="none"
-              data={chartRows}
-              dataKey="demSharePct"
-              fill="rgba(0,0,0,0)"
-              stroke="none"
-              shape={HitCircle}
-              isAnimationActive={false}
-            />
-            <Scatter
-              name="Republican vote share"
-              data={chartRows}
-              dataKey="repSharePct"
-              fill={REP_COLOR}
-              fillOpacity={0.26}
-              stroke="none"
-              isAnimationActive={false}
-            />
-            <Scatter
-              legendType="none"
-              data={chartRows}
-              dataKey="repSharePct"
-              fill="rgba(0,0,0,0)"
-              stroke="none"
-              shape={HitCircle}
-              isAnimationActive={false}
-            />
-            <Line
-              name="Democratic trend"
-              data={trendRows}
-              type="monotone"
-              dataKey="demTrendPct"
-              stroke={DEM_COLOR}
-              strokeWidth={2.2}
-              dot={false}
-              connectNulls
-              isAnimationActive={false}
-            />
-            <Line
-              name="Republican trend"
-              data={trendRows}
-              type="monotone"
-              dataKey="repTrendPct"
-              stroke={REP_COLOR}
-              strokeWidth={2.2}
-              dot={false}
-              connectNulls
-              isAnimationActive={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      )}
+        <div style={{ minHeight: 0 }}>
+          <GinglesPointsTable
+            rows={chartRows}
+            selectedPid={selectedPid}
+            onSelectPid={setSelectedPid}
+            selectedGroupKey={effectiveGroup}
+            selectedGroupLabel={activeGroupLabel}
+          />
+        </div>
+      </div>
     </div>
   )
 }

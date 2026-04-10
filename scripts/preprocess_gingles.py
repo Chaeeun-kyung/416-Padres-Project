@@ -6,19 +6,18 @@ import argparse
 import glob
 import json
 import math
+import numpy as np
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-
 
 STATE_FIPS_TO_CODE = {"04": "AZ", "08": "CO"}
 DEFAULT_INPUT = "public/geojson/*-precincts-with-results-cvap.geojson"
 GROUPS = ["white_pct", "latino_pct"]
 GROUP_LABELS = {"white_pct": "White", "latino_pct": "Latino"}
+# Degree 3 -> cubic polynomial regression: y = b0 + b1*x + b2*x^2 + b3*x^3.
 TREND_DEGREE = 3
 TREND_POINT_COUNT = 90
-BACKEND_RENDER_POINT_LIMIT = 1000
-BACKEND_SAMPLE_BIN_COUNT = 28
 
 # Convert raw property values safely into finite numbers.
 # Keep share values in [0, 1] so downstream chart math stays stable.
@@ -42,117 +41,27 @@ def pick_number(props, keys):
 def clamp01(value):
     return max(0.0, min(1.0, value))
   
-# Precinct files can be very large, so we cap rendered scatter points.
-# Stratified bin sampling keeps x-axis coverage representative.
-
-# To make even plots from uneven bins.
-def pick_evenly(items, count):
-    if count <= 0 or not items:
+# Return all rows for chart rendering.
+def rows_for_render(rows):
+    if not isinstance(rows, list):
         return []
-    if count >= len(items):
-        return list(items)
-
-    picked = []
-    stride = len(items) / count
-    cursor = 0.0
-    for _ in range(count):
-        index = min(len(items) - 1, int(cursor))
-        picked.append(items[index])
-        cursor += stride
-    return picked
-
-# Pick a representative subset of rows for rendering, with a hard cap on total points.
-def sample_rows_for_render(rows, group, max_rows=BACKEND_RENDER_POINT_LIMIT, bin_count=BACKEND_SAMPLE_BIN_COUNT):
-    if not isinstance(rows, list) or len(rows) <= max_rows:
-        return list(rows or [])
-
-    bins = [[] for _ in range(bin_count)]
-    for row in rows:
-        x = to_number(row.get(group))
-        if x is None:
-            continue
-        bin_index = max(0, min(bin_count - 1, int(x * bin_count)))
-        bins[bin_index].append(row)
-
-    non_empty_bins = [bucket for bucket in bins if bucket]
-    if not non_empty_bins:
-        return list(rows[:max_rows])
-
-    sampled = []
-    base_quota = max(1, max_rows // len(non_empty_bins))
-    remaining = max_rows
-    leftovers = []
-
-    for bucket in non_empty_bins:
-        take = min(len(bucket), base_quota)
-        chosen = pick_evenly(bucket, take)
-        sampled.extend(chosen)
-        remaining -= len(chosen)
-        if len(bucket) > take:
-            chosen_ids = {id(item) for item in chosen}
-            leftovers.extend(item for item in bucket if id(item) not in chosen_ids)
-
-    if remaining > 0 and leftovers:
-        sampled.extend(pick_evenly(leftovers, min(remaining, len(leftovers))))
-
-    return sampled[:max_rows]
+    return list(rows)
 
 # Build cubic regression curves for Dem/Rep shares against group CVAP share.
-# Uses a small linear-system solver so preprocessing remains self-contained.
-
-# This function solves the normal-equation system used to fit the polynomial trend line coefficients.
-# It uses Gaussian elimination.
-def solve_linear_system(matrix, vector):
-    n = len(vector)
-    augmented = [list(row) + [vector[index]] for index, row in enumerate(matrix)]
-
-    for pivot in range(n):
-        max_row = pivot
-        max_abs = abs(augmented[pivot][pivot])
-        for row in range(pivot + 1, n):
-            abs_value = abs(augmented[row][pivot])
-            if abs_value > max_abs:
-                max_abs = abs_value
-                max_row = row
-
-        if max_abs <= 1e-12:
-            return None
-
-        if max_row != pivot:
-            augmented[pivot], augmented[max_row] = augmented[max_row], augmented[pivot]
-
-        pivot_value = augmented[pivot][pivot]
-        for col in range(pivot, n + 1):
-            augmented[pivot][col] /= pivot_value
-
-        for row in range(n):
-            if row == pivot:
-                continue
-            factor = augmented[row][pivot]
-            for col in range(pivot, n + 1):
-                augmented[row][col] -= factor * augmented[pivot][col]
-
-    return [augmented[row][n] for row in range(n)]
+# NumPy least-squares for better numerical stability.
 
 # Fit a polynomial of the given degree to the points, using the specified value key for y-values.
 def fit_polynomial(points, value_key, degree):
     size = degree + 1
-    matrix = [[0.0 for _ in range(size)] for _ in range(size)]
-    vector = [0.0 for _ in range(size)]
-
-    for point in points:
-        x = point["x"]
-        y = point[value_key]
-        powers = [1.0]
-        for _ in range(1, size * 2):
-            powers.append(powers[-1] * x)
-
-        for row in range(size):
-            for col in range(size):
-                matrix[row][col] += powers[row + col]
-            vector[row] += y * powers[row]
-
-    return solve_linear_system(matrix, vector)
+    x_values = np.array([point["x"] for point in points], dtype=float)
+    y_values = np.array([point[value_key] for point in points], dtype=float)
+    # Design matrix row is [1, x, x^2, ..., x^degree].
+    design_matrix = np.vander(x_values, N=size, increasing=True)
+    # Solve min ||Xb - y||^2 for coefficient vector b.
+    coefficients, *_ = np.linalg.lstsq(design_matrix, y_values, rcond=None)
+    if not np.all(np.isfinite(coefficients)):
+        return None
+    return coefficients.tolist()
 
 
 def evaluate_polynomial(coefficients, x):
@@ -202,18 +111,34 @@ def build_trend_rows(rows, group):
         "trend_rows": trend_rows,
     }
 
-# Convert sampled points + trend rows into API-ready state/group objects.
+# Convert full precinct points + trend rows into API-ready state/group objects.
 # Output shape matches backend Gingles response contract.
 
 def build_backend_group(rows, group):
-    sampled_rows = sample_rows_for_render(rows, group)
+    render_rows = rows_for_render(rows)
     points = []
-    for row in sampled_rows:
+    for row in render_rows:
         x = to_number(row.get(group))
         dem_share = to_number(row.get("dem_share"))
         rep_share = to_number(row.get("rep_share"))
         pid = row.get("pid")
-        if x is None or dem_share is None or rep_share is None:
+        democratic_votes = to_number(row.get("democratic_votes"))
+        republican_votes = to_number(row.get("republican_votes"))
+        total_population = to_number(row.get("total_population"))
+        white_population = to_number(row.get("white_population"))
+        latino_population = to_number(row.get("latino_population"))
+        minority_non_white_population = to_number(row.get("minority_non_white_population"))
+        if (
+            x is None
+            or dem_share is None
+            or rep_share is None
+            or democratic_votes is None
+            or republican_votes is None
+            or total_population is None
+            or white_population is None
+            or latino_population is None
+            or minority_non_white_population is None
+        ):
             continue
         points.append(
             {
@@ -221,6 +146,12 @@ def build_backend_group(rows, group):
                 "x": x * 100.0,
                 "demSharePct": dem_share * 100.0,
                 "repSharePct": rep_share * 100.0,
+                "democraticVotes": democratic_votes,
+                "republicanVotes": republican_votes,
+                "totalPopulation": total_population,
+                "whitePopulation": white_population,
+                "latinoPopulation": latino_population,
+                "minorityNonWhitePopulation": minority_non_white_population,
             }
         )
 
@@ -296,12 +227,24 @@ def compute_point(props, index, state_code=None):
     if white_cvap < 0 or latino_cvap < 0:
         return None
 
+    # Table population fields are CVAP-based.
+    total_population = total_cvap
+    white_population = max(0.0, min(white_cvap, total_population))
+    latino_population = max(0.0, min(latino_cvap, total_population))
+    minority_non_white_population = max(0.0, min(latino_population, total_population))
+
     row = {
         "pid": resolve_pid(props, index),
         "dem_share": clamp01(dem_votes / total_votes),
         "rep_share": clamp01(rep_votes / total_votes),
         "white_pct": clamp01(white_cvap / total_cvap),
         "latino_pct": clamp01(latino_cvap / total_cvap),
+        "democratic_votes": dem_votes,
+        "republican_votes": rep_votes,
+        "total_population": total_population,
+        "white_population": white_population,
+        "latino_population": latino_population,
+        "minority_non_white_population": minority_non_white_population,
     }
     if state_code is None:
         state_code = resolve_state(props)
@@ -442,7 +385,7 @@ def main(argv=None):
         return 1
 
     generated_at = datetime.now(timezone.utc).isoformat()
-    write_json(outdir / "gingles_points.json", points, compact=True)
+    write_json(outdir / "gingles_points.json", points, compact=False)
     write_json(
         outdir / "gingles_meta.json",
         {
