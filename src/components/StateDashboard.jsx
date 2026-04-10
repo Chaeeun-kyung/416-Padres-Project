@@ -11,8 +11,9 @@ const LEFT_PANEL_WIDTH = 280
 const RIGHT_PANEL_MIN_WIDTH = 370
 const MAP_PANEL_MIN_WIDTH = 320
 const RIGHT_PANEL_SUMMARY_WIDTH = RIGHT_PANEL_MIN_WIDTH
-const ANALYSIS_TABS = new Set(['Gingles', 'EI', 'Ensembles'])
 const ANALYSIS_RIGHT_PANEL_RATIO = 0.5
+const GINGLES_RIGHT_PANEL_RATIO = 0.68
+const ANALYSIS_TABS = new Set(['Gingles', 'EI', 'Ensembles'])
 
 const STATE_PRECLEARANCE_LABEL = {
   AZ: 'Preclearance State',
@@ -37,7 +38,11 @@ function StateDashboard() {
   const [rightPanelWidth, setRightPanelWidth] = useState(RIGHT_PANEL_MIN_WIDTH)
   const [isResizingSidebar, setIsResizingSidebar] = useState(false)
   const gridRef = useRef(null)
-  const previousUseWidePanelRef = useRef(ANALYSIS_TABS.has(activeTab) || Boolean(selectedDistrictId))
+  const previousPanelModeRef = useRef(
+    activeTab === 'Gingles'
+      ? 'gingles'
+      : ((ANALYSIS_TABS.has(activeTab) || selectedDistrictId) ? 'analysis' : 'summary'),
+  )
   const selectedStateName = STATE_META[selectedStateCode]?.name ?? 'State Dashboard'
   const preclearanceLabel = STATE_PRECLEARANCE_LABEL[selectedStateCode] ?? ''
 
@@ -60,19 +65,26 @@ function StateDashboard() {
   }
 
   useEffect(() => {
-    const useWidePanel = ANALYSIS_TABS.has(activeTab) || Boolean(selectedDistrictId)
-    const wasWidePanel = previousUseWidePanelRef.current
-    if (useWidePanel === wasWidePanel) return
+    const panelMode = activeTab === 'Gingles'
+      ? 'gingles'
+      : ((ANALYSIS_TABS.has(activeTab) || selectedDistrictId) ? 'analysis' : 'summary')
+    const previousPanelMode = previousPanelModeRef.current
+    if (panelMode === previousPanelMode) return
 
-    previousUseWidePanelRef.current = useWidePanel
+    previousPanelModeRef.current = panelMode
     const frameId = requestAnimationFrame(() => {
       const { minWidth, maxWidth, paneAvailableWidth } = getRightPanelWidthBounds()
-      if (useWidePanel) {
+      if (panelMode === 'gingles') {
+        const targetWidth = paneAvailableWidth * GINGLES_RIGHT_PANEL_RATIO
+        setRightPanelWidth(Math.max(minWidth, Math.min(maxWidth, targetWidth)))
+        return
+      }
+      if (panelMode === 'analysis') {
         const targetWidth = paneAvailableWidth * ANALYSIS_RIGHT_PANEL_RATIO
         setRightPanelWidth(Math.max(minWidth, Math.min(maxWidth, targetWidth)))
-      } else {
-        setRightPanelWidth(Math.max(minWidth, Math.min(maxWidth, RIGHT_PANEL_SUMMARY_WIDTH)))
+        return
       }
+      setRightPanelWidth(Math.max(minWidth, Math.min(maxWidth, RIGHT_PANEL_SUMMARY_WIDTH)))
     })
     return () => cancelAnimationFrame(frameId)
   }, [activeTab, selectedDistrictId])

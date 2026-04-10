@@ -138,6 +138,8 @@ public class AnalysisService {
             point.democraticVotes(),
             point.republicanVotes(),
             point.totalPopulation(),
+            point.whitePopulation(),
+            point.latinoPopulation(),
             point.minorityNonWhitePopulation()
         ))
         .toList();

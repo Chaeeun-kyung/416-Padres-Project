@@ -165,6 +165,8 @@ def build_backend_group(rows, group):
         democratic_votes = to_number(row.get("democratic_votes"))
         republican_votes = to_number(row.get("republican_votes"))
         total_population = to_number(row.get("total_population"))
+        white_population = to_number(row.get("white_population"))
+        latino_population = to_number(row.get("latino_population"))
         minority_non_white_population = to_number(row.get("minority_non_white_population"))
         if (
             x is None
@@ -173,6 +175,8 @@ def build_backend_group(rows, group):
             or democratic_votes is None
             or republican_votes is None
             or total_population is None
+            or white_population is None
+            or latino_population is None
             or minority_non_white_population is None
         ):
             continue
@@ -185,6 +189,8 @@ def build_backend_group(rows, group):
                 "democraticVotes": democratic_votes,
                 "republicanVotes": republican_votes,
                 "totalPopulation": total_population,
+                "whitePopulation": white_population,
+                "latinoPopulation": latino_population,
                 "minorityNonWhitePopulation": minority_non_white_population,
             }
         )
@@ -261,10 +267,10 @@ def compute_point(props, index, state_code=None):
     if white_cvap < 0 or latino_cvap < 0:
         return None
 
-    # GUI-10 table population fields are CVAP-based by project convention.
-    # Use CVAP totals directly (no alternate population-column fallback).
+    # Table population fields are CVAP-based.
     total_population = total_cvap
-    latino_population = latino_cvap
+    white_population = max(0.0, min(white_cvap, total_population))
+    latino_population = max(0.0, min(latino_cvap, total_population))
     minority_non_white_population = max(0.0, min(latino_population, total_population))
 
     row = {
@@ -276,6 +282,8 @@ def compute_point(props, index, state_code=None):
         "democratic_votes": dem_votes,
         "republican_votes": rep_votes,
         "total_population": total_population,
+        "white_population": white_population,
+        "latino_population": latino_population,
         "minority_non_white_population": minority_non_white_population,
     }
     if state_code is None:
@@ -417,7 +425,7 @@ def main(argv=None):
         return 1
 
     generated_at = datetime.now(timezone.utc).isoformat()
-    write_json(outdir / "gingles_points.json", points, compact=True)
+    write_json(outdir / "gingles_points.json", points, compact=False)
     write_json(
         outdir / "gingles_meta.json",
         {

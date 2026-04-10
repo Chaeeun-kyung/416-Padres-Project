@@ -8,6 +8,8 @@ public record GinglesPointResponse(
     Double democraticVotes,
     Double republicanVotes,
     Double totalPopulation,
+    Double whitePopulation,
+    Double latinoPopulation,
     Double minorityNonWhitePopulation
 ) {
 }

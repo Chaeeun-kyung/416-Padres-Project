@@ -8,6 +8,8 @@ public record GinglesRenderPointDocument(
     Double democraticVotes,
     Double republicanVotes,
     Double totalPopulation,
+    Double whitePopulation,
+    Double latinoPopulation,
     Double minorityNonWhitePopulation
 ) {
 }

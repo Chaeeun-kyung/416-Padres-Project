@@ -3,6 +3,7 @@ import axios from 'axios'
 import Plot from 'react-plotly.js'
 import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
+import GinglesPointsTable from '../tables/GinglesPointsTable'
 
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
@@ -12,8 +13,13 @@ const FALLBACK_GROUP_OPTIONS = [
 ]
 const ginglesAnalysisCache = new Map()
 
+function normalizePid(value) {
+  return String(value ?? '').trim()
+}
+
 function GinglesScatter({ stateCode }) {
   const [selectedGroup, setSelectedGroup] = useState('latino_pct')
+  const [selectedPid, setSelectedPid] = useState(null)
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -90,6 +96,10 @@ function GinglesScatter({ stateCode }) {
   const chartRows = useMemo(() => (Array.isArray(analysis?.points) ? analysis.points : []), [analysis])
   const trendRows = useMemo(() => (Array.isArray(analysis?.trendRows) ? analysis.trendRows : []), [analysis])
 
+  useEffect(() => {
+    setSelectedPid(null)
+  }, [selectedGroup, stateCode])
+
   // Build dense point arrays once so Plotly/WebGL receives compact numeric series.
   const plotSeries = useMemo(() => {
     const x = []
@@ -101,13 +111,17 @@ function GinglesScatter({ stateCode }) {
       const xVal = Number(row?.x)
       const demVal = Number(row?.demSharePct)
       const repVal = Number(row?.repSharePct)
+      const pidValue = normalizePid(row?.pid)
       if (!Number.isFinite(xVal) || !Number.isFinite(demVal) || !Number.isFinite(repVal)) {
+        continue
+      }
+      if (!pidValue) {
         continue
       }
       x.push(xVal)
       demY.push(demVal)
       repY.push(repVal)
-      pid.push(row?.pid ?? 'N/A')
+      pid.push(pidValue)
     }
 
     return { x, demY, repY, pid }
@@ -133,6 +147,28 @@ function GinglesScatter({ stateCode }) {
 
   const plottedPrecincts = plotSeries.x.length
 
+  const handlePlotClick = (event) => {
+    const point = event?.points?.[0]
+    if (!point) {
+      return
+    }
+
+    if (point?.curveNumber !== 0 && point?.curveNumber !== 1) {
+      return
+    }
+
+    const rawPidFromPoint = Array.isArray(point.customdata) ? point.customdata[0] : point.customdata
+    const rawPidFromTrace = point?.data?.customdata?.[point?.pointNumber]
+    const rawPid = point?.id ?? rawPidFromPoint ?? rawPidFromTrace
+    const pid = normalizePid(rawPid)
+    if (!pid) {
+      return
+    }
+
+    // Chart click should always pin the corresponding row; no toggle-off on repeated events.
+    setSelectedPid(pid)
+  }
+
   if (loading) {
     return <div className="small-text muted-text">Loading Gingles analysis from the backend...</div>
   }
@@ -152,10 +188,11 @@ function GinglesScatter({ stateCode }) {
     x: plotSeries.x,
     y: plotSeries.demY,
     customdata: plotSeries.pid,
+    ids: plotSeries.pid,
     marker: {
       color: DEM_COLOR,
-      size: 5,
-      opacity: 0.34,
+      size: 4,
+      opacity: 0.28,
     },
     hovertemplate:
       `PID: %{customdata}<br>${activeGroupLabel}: %{x:.1f}%<br>Democratic vote share: %{y:.1f}%<extra></extra>`,
@@ -168,10 +205,11 @@ function GinglesScatter({ stateCode }) {
     x: plotSeries.x,
     y: plotSeries.repY,
     customdata: plotSeries.pid,
+    ids: plotSeries.pid,
     marker: {
       color: REP_COLOR,
-      size: 5,
-      opacity: 0.32,
+      size: 4,
+      opacity: 0.26,
     },
     hovertemplate:
       `PID: %{customdata}<br>${activeGroupLabel}: %{x:.1f}%<br>Republican vote share: %{y:.1f}%<extra></extra>`,
@@ -212,6 +250,8 @@ function GinglesScatter({ stateCode }) {
                 <br />
                 X-axis is selected racial/ethnic CVAP share; y-axis is party vote share.
                 <br />
+                Click a precinct dot to highlight the matching row in the table below.
+                <br />
                 Rendering uses WebGL so all precinct points can be displayed with lower UI lag.
               </>
             )}
@@ -230,45 +270,69 @@ function GinglesScatter({ stateCode }) {
         </div>
       </div>
 
-      <Plot
-        data={[demTrace, repTrace, demTrendTrace, repTrendTrace]}
-        layout={{
-          autosize: true,
-          margin: { l: 58, r: 12, t: 8, b: 52 },
-          showlegend: true,
-          legend: {
-            orientation: 'h',
-            x: 0,
-            y: 1.11,
-            traceorder: 'normal',
-            entrywidthmode: 'fraction',
-            entrywidth: 0.5,
-          },
-          hovermode: 'closest',
-          xaxis: {
-            range: [0, 100],
-            title: { text: `${activeGroupLabel} (CVAP %)` },
-            ticksuffix: '%',
-            automargin: true,
-          },
-          yaxis: {
-            range: [0, 100],
-            title: { text: 'Vote share (%)' },
-            ticksuffix: '%',
-            automargin: true,
-          },
-          paper_bgcolor: 'white',
-          plot_bgcolor: 'white',
-          uirevision: `${stateCode}:${effectiveGroup}`,
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateRows: 'minmax(390px, 1fr) minmax(248px, 248px)',
+          gap: 10,
+          height: 'calc(100% - 36px)',
+          minHeight: 0,
         }}
-        config={{
-          displayModeBar: false,
-          displaylogo: false,
-          responsive: true,
-        }}
-        useResizeHandler
-        style={{ width: '100%', height: '88%' }}
-      />
+      >
+        <div style={{ minHeight: 0 }}>
+          <Plot
+            data={[demTrace, repTrace, demTrendTrace, repTrendTrace]}
+            layout={{
+              autosize: true,
+              margin: { l: 58, r: 12, t: 8, b: 52 },
+              showlegend: true,
+              legend: {
+                orientation: 'h',
+                x: 0,
+                y: 1.11,
+                traceorder: 'normal',
+                entrywidthmode: 'fraction',
+                entrywidth: 0.5,
+              },
+              hovermode: 'closest',
+              xaxis: {
+                range: [0, 100],
+                title: { text: `${activeGroupLabel} (CVAP %)` },
+                ticksuffix: '%',
+                automargin: true,
+              },
+              yaxis: {
+                range: [0, 100],
+                title: { text: 'Vote share (%)' },
+                ticksuffix: '%',
+                automargin: true,
+              },
+              paper_bgcolor: 'white',
+              plot_bgcolor: 'white',
+              uirevision: `${stateCode}:${effectiveGroup}`,
+            }}
+            config={{
+              displayModeBar: false,
+              displaylogo: false,
+              responsive: true,
+              scrollZoom: true,
+            }}
+            onClick={handlePlotClick}
+            useResizeHandler
+            style={{ width: '100%', height: '100%' }}
+          />
+        </div>
+
+        <div style={{ minHeight: 0 }}>
+          <GinglesPointsTable
+            rows={chartRows}
+            selectedPid={selectedPid}
+            onSelectPid={setSelectedPid}
+            selectedGroupKey={effectiveGroup}
+            selectedGroupLabel={activeGroupLabel}
+          />
+        </div>
+      </div>
     </div>
   )
 }
