@@ -6,15 +6,16 @@ import argparse
 import glob
 import json
 import math
+import numpy as np
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-
 
 STATE_FIPS_TO_CODE = {"04": "AZ", "08": "CO"}
 DEFAULT_INPUT = "public/geojson/*-precincts-with-results-cvap.geojson"
 GROUPS = ["white_pct", "latino_pct"]
 GROUP_LABELS = {"white_pct": "White", "latino_pct": "Latino"}
+# Degree 3 -> cubic polynomial regression: y = b0 + b1*x + b2*x^2 + b3*x^3.
 TREND_DEGREE = 3
 TREND_POINT_COUNT = 90
 
@@ -40,68 +41,27 @@ def pick_number(props, keys):
 def clamp01(value):
     return max(0.0, min(1.0, value))
   
-# Return all rows for chart rendering (GUI-9 requires plotting all precinct points).
+# Return all rows for chart rendering.
 def rows_for_render(rows):
     if not isinstance(rows, list):
         return []
     return list(rows)
 
 # Build cubic regression curves for Dem/Rep shares against group CVAP share.
-# Uses a small linear-system solver so preprocessing remains self-contained.
-
-# This function solves the normal-equation system used to fit the polynomial trend line coefficients.
-# It uses Gaussian elimination.
-def solve_linear_system(matrix, vector):
-    n = len(vector)
-    augmented = [list(row) + [vector[index]] for index, row in enumerate(matrix)]
-
-    for pivot in range(n):
-        max_row = pivot
-        max_abs = abs(augmented[pivot][pivot])
-        for row in range(pivot + 1, n):
-            abs_value = abs(augmented[row][pivot])
-            if abs_value > max_abs:
-                max_abs = abs_value
-                max_row = row
-
-        if max_abs <= 1e-12:
-            return None
-
-        if max_row != pivot:
-            augmented[pivot], augmented[max_row] = augmented[max_row], augmented[pivot]
-
-        pivot_value = augmented[pivot][pivot]
-        for col in range(pivot, n + 1):
-            augmented[pivot][col] /= pivot_value
-
-        for row in range(n):
-            if row == pivot:
-                continue
-            factor = augmented[row][pivot]
-            for col in range(pivot, n + 1):
-                augmented[row][col] -= factor * augmented[pivot][col]
-
-    return [augmented[row][n] for row in range(n)]
+# NumPy least-squares for better numerical stability.
 
 # Fit a polynomial of the given degree to the points, using the specified value key for y-values.
 def fit_polynomial(points, value_key, degree):
     size = degree + 1
-    matrix = [[0.0 for _ in range(size)] for _ in range(size)]
-    vector = [0.0 for _ in range(size)]
-
-    for point in points:
-        x = point["x"]
-        y = point[value_key]
-        powers = [1.0]
-        for _ in range(1, size * 2):
-            powers.append(powers[-1] * x)
-
-        for row in range(size):
-            for col in range(size):
-                matrix[row][col] += powers[row + col]
-            vector[row] += y * powers[row]
-
-    return solve_linear_system(matrix, vector)
+    x_values = np.array([point["x"] for point in points], dtype=float)
+    y_values = np.array([point[value_key] for point in points], dtype=float)
+    # Design matrix row is [1, x, x^2, ..., x^degree].
+    design_matrix = np.vander(x_values, N=size, increasing=True)
+    # Solve min ||Xb - y||^2 for coefficient vector b.
+    coefficients, *_ = np.linalg.lstsq(design_matrix, y_values, rcond=None)
+    if not np.all(np.isfinite(coefficients)):
+        return None
+    return coefficients.tolist()
 
 
 def evaluate_polynomial(coefficients, x):
