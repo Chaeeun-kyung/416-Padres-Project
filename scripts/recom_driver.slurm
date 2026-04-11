@@ -12,4 +12,25 @@ module load slurm
 module load anaconda/3 
 source activate cse416 
 cd /gpfs/home/$USER/cse416/scripts
-python -u recom_driver.py
+
+# ---------------------------
+# SeaWulf driver configuration
+# ---------------------------
+STATE=${STATE:-AZ}
+STEPS=${STEPS:-100}
+SEED=${SEED:-42}
+INPUT_ROOT=${INPUT_ROOT:-../results/seawulf_inputs}
+OUTPUT=${OUTPUT:-../results/recom_${STATE}_plans.json}
+
+# Optional VRA-constrained mode:
+# export VRA_GROUP_FIELD=CVAP_HSP24
+# export VRA_MIN_DISTRICTS=2
+# export VRA_THRESHOLD=0.50
+
+CMD=(python -u recom_driver.py --state "$STATE" --steps "$STEPS" --seed "$SEED" --input-root "$INPUT_ROOT" --output "$OUTPUT")
+if [ -n "$VRA_GROUP_FIELD" ] && [ -n "$VRA_MIN_DISTRICTS" ]; then
+	CMD+=(--vra-group-field "$VRA_GROUP_FIELD" --vra-min-districts "$VRA_MIN_DISTRICTS" --vra-threshold "${VRA_THRESHOLD:-0.5}")
+fi
+
+echo "Running driver command: ${CMD[*]}"
+"${CMD[@]}"

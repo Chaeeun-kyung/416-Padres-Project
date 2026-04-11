@@ -29,3 +29,6 @@ backend/target
 # Python cache artifacts
 __pycache__/
 *.py[cod]
+
+# Large generated SeaWulf files (reproducible via scripts/generate_seawulf_inputs.py)
+results/seawulf_inputs/*/*_precincts_seawulf.geojson
