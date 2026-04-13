@@ -1,0 +1,34 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+build
+.env
+backend/target
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Python cache artifacts
+__pycache__/
+*.py[cod]
+
+# Large generated SeaWulf files (reproducible via scripts/generate_seawulf_inputs.py)
+results/seawulf_inputs/*/*_precincts_seawulf.geojson

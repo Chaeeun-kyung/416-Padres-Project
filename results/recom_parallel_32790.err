@@ -1,0 +1,2 @@
+/var/spool/slurmd/job32790/slurm_script: line 27: syntax error near unexpected token `if'
+/var/spool/slurmd/job32790/slurm_script: line 27: `    if [ $i -lt $REM ]; then'

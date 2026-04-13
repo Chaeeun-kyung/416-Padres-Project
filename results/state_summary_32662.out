@@ -1,0 +1,30 @@
+
+Arizona
+=======
+Precincts: 1694
+Dem votes: 1582852
+Rep votes: 1770237
+Total votes: 3389306
+Dem share: 0.46701360101448497
+Rep share: 0.5223007305920445
+Dem precinct wins: 755
+Rep precinct wins: 938
+Graph nodes: 1694
+Graph edges: 4551
+Connected components: 1
+Largest component: 1694
+
+Colorado
+========
+Precincts: 3162
+Dem votes: 1727561
+Rep votes: 1377057
+Total votes: 3192183
+Dem share: 0.5411848255566801
+Rep share: 0.43138410297905855
+Dem precinct wins: 1965
+Rep precinct wins: 1189
+Graph nodes: 3162
+Graph edges: 8732
+Connected components: 1
+Largest component: 3162

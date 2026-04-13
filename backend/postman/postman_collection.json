@@ -1,0 +1,377 @@
+{
+  "info": {
+    "_postman_id": "5a4bfe8c-80f0-4f95-a7fd-bd91547d8aab",
+    "name": "Padres Backend API",
+    "description": "Backend verification collection for state summary, representation, ensemble, and analysis endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "State Summary",
+      "item": [
+        {
+          "name": "Get State Summary - AZ (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Summary response has current dashboard fields', function () {",
+                  "    pm.expect(body.stateCode).to.eql('AZ');",
+                  "    pm.expect(body).to.have.property('districts');",
+                  "    pm.expect(body).to.have.property('votingAgePopulation');",
+                  "    pm.expect(body).to.have.property('racialEthnicPopulationPct');",
+                  "    pm.expect(body).to.have.property('racialEthnicPopulationMillions');",
+                  "    pm.expect(body).to.have.property('voterDistribution');",
+                  "    pm.expect(body).to.have.property('ensembleSummary');",
+                  "    pm.expect(body).to.have.property('redistrictingControl');",
+                  "    pm.expect(body).to.have.property('congressionalPartySummary');",
+                  "});",
+                  "",
+                  "pm.test('Summary values are realistic', function () {",
+                  "    pm.expect(body.districts).to.be.a('number');",
+                  "    pm.expect(body.districts).to.be.above(0);",
+                  "    pm.expect(body.votingAgePopulation).to.be.a('number');",
+                  "    pm.expect(body.voterDistribution.demVotes).to.be.a('number');",
+                  "    pm.expect(body.voterDistribution.repVotes).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/AZ/summary"
+          },
+          "response": []
+        },
+        {
+          "name": "Get State Summary - CO (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('CO summary fields exist', function () {",
+                  "    pm.expect(body.stateCode).to.eql('CO');",
+                  "    pm.expect(body.districts).to.be.a('number');",
+                  "    pm.expect(body.congressionalPartySummary).to.have.property('democrats');",
+                  "    pm.expect(body.congressionalPartySummary).to.have.property('republicans');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/CO/summary"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Representation",
+      "item": [
+        {
+          "name": "Get Representation - AZ (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Representation response has rows', function () {",
+                  "    pm.expect(body.stateCode).to.eql('AZ');",
+                  "    pm.expect(body.rows).to.be.an('array');",
+                  "    pm.expect(body.rows.length).to.be.above(0);",
+                  "});",
+                  "",
+                  "pm.test('First row has expected fields', function () {",
+                  "    const row = body.rows[0];",
+                  "    pm.expect(row).to.have.property('districtId');",
+                  "    pm.expect(row).to.have.property('incumbent');",
+                  "    pm.expect(row).to.have.property('party');",
+                  "    pm.expect(row).to.have.property('repRaceEthnicity');",
+                  "    pm.expect(row).to.have.property('voteMarginPct');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/AZ/representation"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ensembles",
+      "item": [
+        {
+          "name": "Get Ensemble Splits - AZ (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Split response has both ensembles', function () {",
+                  "    pm.expect(body.stateCode).to.eql('AZ');",
+                  "    pm.expect(body.raceBlind).to.be.an('array');",
+                  "    pm.expect(body.vraConstrained).to.be.an('array');",
+                  "    pm.expect(body.raceBlind.length).to.be.above(0);",
+                  "    pm.expect(body.vraConstrained.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/AZ/ensembles/splits"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Ensemble Boxplot - AZ (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Boxplot response has distributions and enacted values', function () {",
+                  "    pm.expect(body.stateCode).to.eql('AZ');",
+                  "    pm.expect(body.groupKey).to.eql('latino_pct');",
+                  "    pm.expect(body.ensembleKey).to.eql('raceBlind');",
+                  "    pm.expect(body.availableGroups).to.be.an('array');",
+                  "    pm.expect(body.availableEnsembles).to.be.an('array');",
+                  "    pm.expect(body.districtOrder).to.be.an('array');",
+                  "    pm.expect(body.distributions).to.be.an('object');",
+                  "    pm.expect(body.enacted).to.be.an('object');",
+                  "    pm.expect(Object.keys(body.distributions).length).to.be.above(0);",
+                  "    pm.expect(Object.keys(body.enacted).length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/AZ/ensembles/boxplot"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analysis",
+      "item": [
+        {
+          "name": "Get Gingles Analysis - AZ Latino (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Gingles response contains chart data', function () {",
+                  "    pm.expect(body.stateCode).to.eql('AZ');",
+                  "    pm.expect(body.groupKey).to.eql('latino_pct');",
+                  "    pm.expect(body.availableGroups).to.be.an('array');",
+                  "    pm.expect(body.points).to.be.an('array');",
+                  "    pm.expect(body.trendRows).to.be.an('array');",
+                  "    pm.expect(body.points.length).to.be.above(0);",
+                  "    pm.expect(body.trendRows.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/AZ/analysis/gingles?group=latino_pct"
+          },
+          "response": []
+        },
+        {
+          "name": "Get EI Analysis - AZ Latino (200)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('EI response contains both candidate density series', function () {",
+                  "    pm.expect(body.stateCode).to.eql('AZ');",
+                  "    pm.expect(body.groupKey).to.eql('latino_pct');",
+                  "    pm.expect(body.availableGroups).to.be.an('array');",
+                  "    pm.expect(body.demRows).to.be.an('array');",
+                  "    pm.expect(body.repRows).to.be.an('array');",
+                  "    pm.expect(body.demRows.length).to.be.above(0);",
+                  "    pm.expect(body.repRows.length).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/AZ/analysis/ei?group=latino_pct"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Errors",
+      "item": [
+        {
+          "name": "Get State Summary - Unknown State (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404 for unknown state', function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Error payload uses current API error shape', function () {",
+                  "    pm.expect(body.status).to.eql(404);",
+                  "    pm.expect(body.error).to.eql('Not Found');",
+                  "    pm.expect(body.message).to.include('State summary not found');",
+                  "    pm.expect(body.path).to.include('/api/states/AA/summary');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/AA/summary"
+          },
+          "response": []
+        },
+        {
+          "name": "Get State Summary - Blank State Code (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400 for blank state code', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Bad request payload explains missing state code', function () {",
+                  "    pm.expect(body.status).to.eql(400);",
+                  "    pm.expect(body.error).to.eql('Bad Request');",
+                  "    pm.expect(body.message).to.include('State code is required');",
+                  "    pm.expect(body.path).to.include('/api/states/');",
+                  "    pm.expect(body.path).to.include('/summary');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/%20/summary"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Gingles Analysis - Bad Group (400)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 400 for unsupported group', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "pm.test('Bad request payload is informative', function () {",
+                  "    pm.expect(body.status).to.eql(400);",
+                  "    pm.expect(body.error).to.eql('Bad Request');",
+                  "    pm.expect(body.message).to.include('Unsupported analysis group');",
+                  "    pm.expect(body.path).to.include('/api/states/AZ/analysis/gingles');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/states/AZ/analysis/gingles?group=bad_group"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ]
+}

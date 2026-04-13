@@ -1,0 +1,27 @@
+[
+  {
+    "key": "pct_dem_lead",
+    "label": "Dem Lead % (2024)",
+    "description": "Dem vote share minus Rep vote share."
+  },
+  {
+    "key": "white_pct",
+    "label": "White CVAP %",
+    "description": "Precinct-level White CVAP share."
+  },
+  {
+    "key": "black_pct",
+    "label": "Black CVAP %",
+    "description": "Precinct-level Black CVAP share."
+  },
+  {
+    "key": "latino_pct",
+    "label": "Latino CVAP %",
+    "description": "Precinct-level Hispanic/Latino CVAP share."
+  },
+  {
+    "key": "asian_pct",
+    "label": "Asian CVAP %",
+    "description": "Precinct-level Asian CVAP share."
+  }
+]

@@ -1,0 +1,114 @@
+const precinctCache = new Map()
+const districtCache = new Map()
+const PRECINCT_DATA_VARIANT = (import.meta.env.VITE_PRECINCT_DATA_VARIANT ?? 'enacted').toLowerCase()
+
+// Normalizes vote fields so downstream UI can treat them as numbers.
+// This avoids repeated Number(...) calls in chart/table components.
+function normalizeFeature(feature) {
+  const props = feature?.properties ?? {}
+  return {
+    ...feature,
+    properties: {
+      ...props,
+      votes_dem: Number(props.votes_dem ?? 0),
+      votes_rep: Number(props.votes_rep ?? 0),
+      votes_total: Number(props.votes_total ?? 0),
+    },
+  }
+}
+
+export async function loadPrecinctGeoJSON(stateCode, precinctDataVariant = PRECINCT_DATA_VARIANT) {
+  if (!stateCode) return null
+  const normalizedVariant = String(precinctDataVariant ?? PRECINCT_DATA_VARIANT).toLowerCase() === 'cvap'
+    ? 'cvap'
+    : 'enacted'
+  const cacheKey = `${stateCode}:${normalizedVariant}`
+
+  if (precinctCache.has(cacheKey)) {
+    return precinctCache.get(cacheKey)
+  }
+
+  const defaultPath = `/geojson/${stateCode}-precincts-with-results-cvap.geojson`
+  const enactedPath = `/geojson/${stateCode}-precincts-with-results-cvap-with-enacted-districts.geojson`
+  const candidatePaths =
+    normalizedVariant === 'cvap'
+      ? [defaultPath, enactedPath]
+      : [enactedPath, defaultPath]
+
+  let response = null
+  for (const path of candidatePaths) {
+    const nextResponse = await fetch(path, { cache: 'no-store' })
+    if (nextResponse.ok) {
+      response = nextResponse
+      break
+    }
+  }
+
+  if (!response) {
+    throw new Error(`Failed to load CVAP precinct GeoJSON for ${stateCode}`)
+  }
+
+  const geojson = await response.json()
+  geojson.features = (geojson.features ?? []).map(normalizeFeature)
+  precinctCache.set(cacheKey, geojson)
+  return geojson
+}
+
+// Loads district boundary GeoJSON for the selected state and caches it.
+// Returns null if district files are missing or malformed so map can degrade gracefully.
+export async function loadDistrictGeoJSON(stateCode) {
+  if (!stateCode) return null
+  if (districtCache.has(stateCode)) {
+    return districtCache.get(stateCode)
+  }
+
+  try {
+    const response = await fetch(`/geojson/${stateCode}-districts.geojson`, { cache: 'no-store' })
+    if (!response.ok) {
+      return null
+    }
+    const geojson = await response.json()
+    if (!geojson || geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features) || geojson.features.length === 0) {
+      return null
+    }
+    districtCache.set(stateCode, geojson)
+    return geojson
+  } catch {
+    return null
+  }
+}
+
+// Computes a bounding box from arbitrary GeoJSON feature coordinates.
+// Output format matches Leaflet fitBounds input: [[minLat, minLng], [maxLat, maxLng]].
+export function deriveStateBounds(features) {
+  let minLat = Infinity
+  let minLng = Infinity
+  let maxLat = -Infinity
+  let maxLng = -Infinity
+
+  function visitCoordinates(coords) {
+    if (!Array.isArray(coords)) return
+    if (typeof coords[0] === 'number' && typeof coords[1] === 'number') {
+      const [lng, lat] = coords
+      minLat = Math.min(minLat, lat)
+      minLng = Math.min(minLng, lng)
+      maxLat = Math.max(maxLat, lat)
+      maxLng = Math.max(maxLng, lng)
+      return
+    }
+    coords.forEach(visitCoordinates)
+  }
+
+  for (const feature of features ?? []) {
+    visitCoordinates(feature?.geometry?.coordinates)
+  }
+
+  if (!Number.isFinite(minLat) || !Number.isFinite(minLng)) {
+    return null
+  }
+
+  return [
+    [minLat, minLng],
+    [maxLat, maxLng],
+  ]
+}

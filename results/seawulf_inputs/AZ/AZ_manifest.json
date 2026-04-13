@@ -1,0 +1,23 @@
+{
+  "state": "AZ",
+  "generated_at_utc": "2026-04-11T02:03:59.770581+00:00",
+  "precinct_count": 1694,
+  "graph_node_count": 1694,
+  "graph_edge_count": 4359,
+  "district_count": 9,
+  "missing_field_counts": {
+    "GEOID": 0,
+    "state": 0,
+    "votes_dem": 0,
+    "votes_rep": 0,
+    "votes_total": 0,
+    "district_id": 0,
+    "district_number": 0,
+    "district_name": 0,
+    "neighbors_200ft": 0,
+    "neighbor_count_200ft": 0,
+    "incumbent": 0,
+    "incumbent_party": 0
+  },
+  "asymmetric_neighbor_links": 0
+}
