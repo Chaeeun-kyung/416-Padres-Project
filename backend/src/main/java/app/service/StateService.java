@@ -11,6 +11,7 @@ import app.dto.VoterDistributionResponse;
 import app.exception.BadRequestException;
 import app.exception.ResourceNotFoundException;
 import app.repository.StateSummaryRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,6 +23,11 @@ public class StateService {
     this.stateSummaryRepository = stateSummaryRepository;
   }
 
+  @Cacheable(
+      cacheNames = "stateSummary",
+      key = "#rawStateCode == null ? '' : #rawStateCode.trim().toUpperCase()",
+      sync = true
+  )
   public StateSummaryResponse getSummary(String rawStateCode) {
     String stateCode = normalizeStateCode(rawStateCode);
     StateSummaryDocument document = stateSummaryRepository.findByStateCode(stateCode);

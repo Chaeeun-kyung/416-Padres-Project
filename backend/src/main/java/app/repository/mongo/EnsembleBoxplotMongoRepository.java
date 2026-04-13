@@ -5,5 +5,9 @@ import java.util.Optional;
 import org.springframework.data.mongodb.repository.MongoRepository;
 
 public interface EnsembleBoxplotMongoRepository extends MongoRepository<EnsembleBoxplotMongoDocument, String> {
-  Optional<EnsembleBoxplotMongoDocument> findByStateCode(String stateCode);
+  Optional<EnsembleBoxplotMongoDocument> findByStateCodeAndGroupKeyAndEnsembleKey(
+      String stateCode,
+      String groupKey,
+      String ensembleKey
+  );
 }
