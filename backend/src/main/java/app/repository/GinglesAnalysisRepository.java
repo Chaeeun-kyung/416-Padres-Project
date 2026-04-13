@@ -1,20 +1,20 @@
 package app.repository;
 
-import app.domain.GinglesStateDocument;
-import app.repository.mongo.GinglesStateMongoRepository;
+import app.domain.GinglesGroupDocument;
+import app.repository.mongo.GinglesAnalysisMongoRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class GinglesAnalysisRepository {
-  private final GinglesStateMongoRepository mongoRepository;
+  private final GinglesAnalysisMongoRepository mongoRepository;
 
-  public GinglesAnalysisRepository(GinglesStateMongoRepository mongoRepository) {
+  public GinglesAnalysisRepository(GinglesAnalysisMongoRepository mongoRepository) {
     this.mongoRepository = mongoRepository;
   }
 
-  public GinglesStateDocument findByStateCode(String stateCode) {
-    return mongoRepository.findByStateCode(stateCode)
-        .map(document -> document.state())
+  public GinglesGroupDocument findByStateCodeAndGroupKey(String stateCode, String groupKey) {
+    return mongoRepository.findByStateCodeAndGroupKey(stateCode, groupKey)
+        .map(document -> document.analysis())
         .orElse(null);
   }
 }

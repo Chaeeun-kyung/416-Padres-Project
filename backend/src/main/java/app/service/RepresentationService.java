@@ -7,6 +7,7 @@ import app.exception.BadRequestException;
 import app.exception.ResourceNotFoundException;
 import app.repository.DistrictRepresentationRepository;
 import java.util.List;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -18,6 +19,11 @@ public class RepresentationService {
     this.representationRepository = representationRepository;
   }
 
+  @Cacheable(
+      cacheNames = "representation",
+      key = "#rawStateCode == null ? '' : #rawStateCode.trim().toUpperCase()",
+      sync = true
+  )
   public DistrictRepresentationListResponse getRepresentation(String rawStateCode) {
     String stateCode = normalizeStateCode(rawStateCode);
     List<DistrictRepresentationDocument> rows = representationRepository.findByStateCode(stateCode);

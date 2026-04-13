@@ -1,4 +1,4 @@
-package app.repository.support;
+package app.bootstrap;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

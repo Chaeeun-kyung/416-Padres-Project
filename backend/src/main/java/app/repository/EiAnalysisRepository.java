@@ -1,20 +1,20 @@
 package app.repository;
 
-import app.domain.EiStateDocument;
-import app.repository.mongo.EiStateMongoRepository;
+import app.domain.EiGroupDocument;
+import app.repository.mongo.EiAnalysisMongoRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public class EiAnalysisRepository {
-  private final EiStateMongoRepository mongoRepository;
+  private final EiAnalysisMongoRepository mongoRepository;
 
-  public EiAnalysisRepository(EiStateMongoRepository mongoRepository) {
+  public EiAnalysisRepository(EiAnalysisMongoRepository mongoRepository) {
     this.mongoRepository = mongoRepository;
   }
 
-  public EiStateDocument findByStateCode(String stateCode) {
-    return mongoRepository.findByStateCode(stateCode)
-        .map(document -> document.state())
+  public EiGroupDocument findByStateCodeAndGroupKey(String stateCode, String groupKey) {
+    return mongoRepository.findByStateCodeAndGroupKey(stateCode, groupKey)
+        .map(document -> document.analysis())
         .orElse(null);
   }
 }

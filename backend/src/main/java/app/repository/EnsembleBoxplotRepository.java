@@ -1,6 +1,6 @@
 package app.repository;
 
-import app.domain.EnsembleBoxplotDocument;
+import app.domain.EnsembleBoxplotVariantDocument;
 import app.repository.mongo.EnsembleBoxplotMongoRepository;
 import org.springframework.stereotype.Repository;
 
@@ -12,9 +12,20 @@ public class EnsembleBoxplotRepository {
     this.mongoRepository = mongoRepository;
   }
 
-  public EnsembleBoxplotDocument findByStateCode(String stateCode) {
-    return mongoRepository.findByStateCode(stateCode)
-        .map(document -> document.boxplot())
+  public EnsembleBoxplotVariantDocument findByStateCodeAndGroupKeyAndEnsembleKey(
+      String stateCode,
+      String groupKey,
+      String ensembleKey
+  ) {
+    return mongoRepository.findByStateCodeAndGroupKeyAndEnsembleKey(stateCode, groupKey, ensembleKey)
+        .map(document -> new EnsembleBoxplotVariantDocument(
+            document.stateCode(),
+            document.groupKey(),
+            document.ensembleKey(),
+            document.districtOrder(),
+            document.distributions(),
+            document.enacted()
+        ))
         .orElse(null);
   }
 }
