@@ -1,6 +1,8 @@
 package app.bootstrap;
 
 import app.domain.DistrictRepresentationDocument;
+import app.domain.EnactedBoxplotGroupDocument;
+import app.domain.EnactedBoxplotStateDocument;
 import app.domain.EiGroupDocument;
 import app.domain.EiStateDocument;
 import app.domain.EnsembleBoxplotDocument;
@@ -22,8 +24,6 @@ import app.repository.mongo.document.GinglesAnalysisMongoDocument;
 import app.repository.mongo.document.RepresentationMongoDocument;
 import app.repository.mongo.document.StateSummaryMongoDocument;
 import com.fasterxml.jackson.core.type.TypeReference;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -47,14 +47,6 @@ public class PreprocessedDataMongoSeeder implements ApplicationRunner {
   private static final Logger LOGGER = LoggerFactory.getLogger(PreprocessedDataMongoSeeder.class);
   private static final List<String> AVAILABLE_GROUP_KEYS = List.of("white_pct", "latino_pct");
   private static final List<String> AVAILABLE_ENSEMBLES = List.of("raceBlind", "vraConstrained");
-  private static final Map<String, Double> GROUP_OFFSETS = Map.of(
-      "white_pct", 0.012,
-      "latino_pct", 0.03
-  );
-  private static final Map<String, Double> ENSEMBLE_OFFSETS = Map.of(
-      "raceBlind", 0.0,
-      "vraConstrained", 0.012
-  );
 
   private final ResourceJsonLoader jsonLoader;
   private final MongoTemplate mongoTemplate;
@@ -194,32 +186,26 @@ public class PreprocessedDataMongoSeeder implements ApplicationRunner {
     migrateEnsembleBoxplotIndexes();
     ensembleBoxplotMongoRepository.deleteAll();
 
-    TypeReference<Map<String, EnsembleBoxplotDocument>> type = new TypeReference<>() {};
-    Map<String, EnsembleBoxplotDocument> raw = jsonLoader.readResource("ensemble-boxplot.json", type);
-    Map<String, EnsembleBoxplotDocument> normalized = jsonLoader.normalizeKeys(raw);
+    TypeReference<Map<String, EnsembleBoxplotDocument>> baseType = new TypeReference<>() {};
+    Map<String, EnsembleBoxplotDocument> baseRaw = jsonLoader.readResource("ensemble-boxplot.json", baseType);
+    Map<String, EnsembleBoxplotDocument> baseByState = jsonLoader.normalizeKeys(baseRaw);
+
+    TypeReference<Map<String, EnactedBoxplotStateDocument>> enactedType = new TypeReference<>() {};
+    Map<String, EnactedBoxplotStateDocument> enactedRaw = jsonLoader.readResource("enacted-boxplot.json", enactedType);
+    Map<String, EnactedBoxplotStateDocument> enactedByState = jsonLoader.normalizeKeys(enactedRaw);
 
     int savedCount = 0;
-    for (Map.Entry<String, EnsembleBoxplotDocument> stateEntry : normalized.entrySet()) {
+    for (Map.Entry<String, EnsembleBoxplotDocument> stateEntry : baseByState.entrySet()) {
       String stateCode = stateEntry.getKey();
       EnsembleBoxplotDocument baseDocument = stateEntry.getValue();
+      EnactedBoxplotStateDocument enactedStateDocument = enactedByState.get(stateCode);
 
       for (String groupKey : AVAILABLE_GROUP_KEYS) {
         for (String ensembleKey : AVAILABLE_ENSEMBLES) {
-          double groupOffset = GROUP_OFFSETS.getOrDefault(groupKey, 0.0);
-          double ensembleOffset = ENSEMBLE_OFFSETS.getOrDefault(ensembleKey, 0.0);
-
-          Map<String, Double> adjustedEnacted = buildAdjustedEnacted(baseDocument.enacted(), groupOffset, ensembleOffset);
-          List<String> districtOrder = adjustedEnacted.entrySet().stream()
-              .sorted(Map.Entry.comparingByValue())
-              .map(Map.Entry::getKey)
-              .toList();
-
-          Map<String, List<Double>> adjustedDistributions = buildAdjustedDistributions(
-              baseDocument.distributions(),
-              districtOrder,
-              groupOffset,
-              ensembleOffset
-          );
+          EnactedBoxplotGroupDocument groupDocument = resolveGroupDocument(enactedStateDocument, groupKey);
+          Map<String, Double> enacted = normalizeEnacted(groupDocument, baseDocument.enacted());
+          List<String> districtOrder = resolveDistrictOrder(groupDocument, enacted);
+          Map<String, List<Double>> distributions = alignDistributions(baseDocument.distributions(), districtOrder);
 
           ensembleBoxplotMongoRepository.save(
               new EnsembleBoxplotMongoDocument(
@@ -228,8 +214,8 @@ public class PreprocessedDataMongoSeeder implements ApplicationRunner {
                   groupKey,
                   ensembleKey,
                   districtOrder,
-                  adjustedDistributions,
-                  adjustedEnacted
+                  distributions,
+                  enacted
               )
           );
           savedCount += 1;
@@ -254,49 +240,81 @@ public class PreprocessedDataMongoSeeder implements ApplicationRunner {
     LOGGER.info("Seeded {} district representation document(s).", normalized.size());
   }
 
-  private Map<String, Double> buildAdjustedEnacted(
-      Map<String, Double> baseEnacted,
-      double groupOffset,
-      double ensembleOffset
+  private EnactedBoxplotGroupDocument resolveGroupDocument(
+      EnactedBoxplotStateDocument enactedStateDocument,
+      String groupKey
   ) {
-    Map<String, Double> adjusted = new LinkedHashMap<>();
-    List<String> districtIds = baseEnacted == null ? List.of() : new ArrayList<>(baseEnacted.keySet());
-    for (int index = 0; index < districtIds.size(); index += 1) {
-      String districtId = districtIds.get(index);
-      double baseValue = safeNumber(baseEnacted.get(districtId));
-      adjusted.put(districtId, clamp01(baseValue + groupOffset + ensembleOffset + index * 0.0015));
+    if (enactedStateDocument == null || enactedStateDocument.groups() == null) {
+      return null;
     }
-    return Map.copyOf(adjusted);
+    return enactedStateDocument.groups().get(groupKey);
   }
 
-  private Map<String, List<Double>> buildAdjustedDistributions(
-      Map<String, List<Double>> baseDistributions,
-      List<String> districtOrder,
-      double groupOffset,
-      double ensembleOffset
+  private Map<String, Double> normalizeEnacted(
+      EnactedBoxplotGroupDocument groupDocument,
+      Map<String, Double> fallback
   ) {
-    Map<String, List<Double>> adjusted = new LinkedHashMap<>();
-    if (baseDistributions == null) {
+    if (groupDocument != null && groupDocument.enacted() != null && !groupDocument.enacted().isEmpty()) {
+      Map<String, Double> normalized = groupDocument.enacted().entrySet().stream()
+          .filter(entry -> entry.getKey() != null && !entry.getKey().isBlank())
+          .collect(
+              java.util.stream.Collectors.toMap(
+                  Map.Entry::getKey,
+                  entry -> clamp01(entry.getValue() == null ? 0.0 : entry.getValue()),
+                  (left, right) -> right,
+                  java.util.LinkedHashMap::new
+              )
+          );
+      if (!normalized.isEmpty()) {
+        return Map.copyOf(normalized);
+      }
+    }
+    if (fallback == null) {
       return Map.of();
     }
-
-    for (int districtIndex = 0; districtIndex < districtOrder.size(); districtIndex += 1) {
-      String districtId = districtOrder.get(districtIndex);
-      List<Double> baseValues = baseDistributions.getOrDefault(districtId, List.of());
-      List<Double> nextValues = new ArrayList<>(baseValues.size());
-      for (int rowIndex = 0; rowIndex < baseValues.size(); rowIndex += 1) {
-        double adjustedValue = clamp01(
-            safeNumber(baseValues.get(rowIndex)) + groupOffset + ensembleOffset + districtIndex * 0.001 + rowIndex * 0.0004
-        );
-        nextValues.add(adjustedValue);
-      }
-      adjusted.put(districtId, List.copyOf(nextValues));
-    }
-    return Map.copyOf(adjusted);
+    return Map.copyOf(fallback);
   }
 
-  private double safeNumber(Double value) {
-    return value == null ? 0.0 : value;
+  private List<String> resolveDistrictOrder(
+      EnactedBoxplotGroupDocument groupDocument,
+      Map<String, Double> enacted
+  ) {
+    if (groupDocument != null && groupDocument.districtOrder() != null && !groupDocument.districtOrder().isEmpty()) {
+      List<String> order = groupDocument.districtOrder().stream()
+          .filter(districtId -> districtId != null && !districtId.isBlank())
+          .toList();
+      if (!order.isEmpty()) {
+        return List.copyOf(order);
+      }
+    }
+    return enacted.entrySet().stream()
+        .sorted((left, right) -> {
+          int byValue = Double.compare(left.getValue(), right.getValue());
+          if (byValue != 0) {
+            return byValue;
+          }
+          return left.getKey().compareTo(right.getKey());
+        })
+        .map(Map.Entry::getKey)
+        .toList();
+  }
+
+  private Map<String, List<Double>> alignDistributions(
+      Map<String, List<Double>> baseDistributions,
+      List<String> districtOrder
+  ) {
+    if (baseDistributions == null || baseDistributions.isEmpty()) {
+      return Map.of();
+    }
+    if (districtOrder == null || districtOrder.isEmpty()) {
+      return Map.copyOf(baseDistributions);
+    }
+    Map<String, List<Double>> aligned = new java.util.LinkedHashMap<>();
+    for (String districtId : districtOrder) {
+      List<Double> values = baseDistributions.getOrDefault(districtId, List.of());
+      aligned.put(districtId, List.copyOf(values));
+    }
+    return Map.copyOf(aligned);
   }
 
   private double clamp01(double value) {

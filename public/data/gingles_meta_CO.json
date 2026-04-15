@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-10T15:54:44.209028+00:00",
+  "generated_at_utc": "2026-04-14T20:28:42.586977+00:00",
   "state": "CO",
   "inputs": [
     "public\\geojson\\CO-precincts-with-results-cvap.geojson"
@@ -25,10 +25,37 @@
     "latino_pct": {
       "min": 0.0,
       "max": 0.9795886436830196
+    },
+    "black_pct": {
+      "min": 0.0,
+      "max": 0.5455439314826421
+    },
+    "asian_pct": {
+      "min": 0.0,
+      "max": 0.9938609013759704
     }
   },
   "groups": [
     "white_pct",
+    "latino_pct",
+    "black_pct",
+    "asian_pct"
+  ],
+  "groupLabels": {
+    "white_pct": "White",
+    "latino_pct": "Latino",
+    "black_pct": "Black",
+    "asian_pct": "Asian"
+  },
+  "statewideGroupCvap": {
+    "white_pct": 3191272.1731784125,
+    "latino_pct": 738567.6249170145,
+    "black_pct": 162813.4624792454,
+    "asian_pct": 114838.16598308619
+  },
+  "feasibleGroups": [
+    "white_pct",
     "latino_pct"
-  ]
+  ],
+  "feasibleGroupThresholdCvap": 400000.0
 }

@@ -9,6 +9,7 @@ public record GinglesGroupDocument(
     Integer renderPointCount,
     List<Double> demCoefficients,
     List<Double> repCoefficients,
+    List<GinglesModelCandidateDocument> modelCandidates,
     List<GinglesRenderPointDocument> points,
     List<GinglesTrendPointDocument> trendRows
 ) {

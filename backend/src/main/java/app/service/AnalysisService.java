@@ -3,11 +3,13 @@ package app.service;
 import app.domain.EiDensityPointDocument;
 import app.domain.EiGroupDocument;
 import app.domain.GinglesGroupDocument;
+import app.domain.GinglesModelCandidateDocument;
 import app.domain.GinglesRenderPointDocument;
 import app.domain.GinglesTrendPointDocument;
 import app.dto.AnalysisGroupOptionResponse;
 import app.dto.EiDensityPointResponse;
 import app.dto.EiResponse;
+import app.dto.GinglesModelCandidateResponse;
 import app.dto.GinglesPointResponse;
 import app.dto.GinglesResponse;
 import app.dto.GinglesTrendPointResponse;
@@ -25,9 +27,11 @@ public class AnalysisService {
   private static final String DEFAULT_GROUP = "latino_pct";
   private static final Map<String, String> GROUP_LABELS = Map.of(
       "white_pct", "White",
-      "latino_pct", "Latino"
+      "latino_pct", "Latino",
+      "black_pct", "Black",
+      "asian_pct", "Asian"
   );
-  private static final List<String> AVAILABLE_GROUP_KEYS = List.of("white_pct", "latino_pct");
+  private static final List<String> EI_AVAILABLE_GROUP_KEYS = List.of("white_pct", "latino_pct");
 
   private final GinglesAnalysisRepository ginglesAnalysisRepository;
   private final EiAnalysisRepository eiAnalysisRepository;
@@ -47,7 +51,12 @@ public class AnalysisService {
   )
   public GinglesResponse getGingles(String rawStateCode, String rawGroup) {
     String stateCode = normalizeStateCode(rawStateCode);
-    String groupKey = normalizeGroupKey(rawGroup);
+    List<String> availableGroupKeys = ginglesAnalysisRepository.findGroupKeysByStateCode(stateCode);
+    if (availableGroupKeys.isEmpty()) {
+      throw new ResourceNotFoundException("No Gingles groups available for state " + stateCode);
+    }
+
+    String groupKey = normalizeGinglesGroupKey(rawGroup, availableGroupKeys);
     GinglesGroupDocument groupDocument = ginglesAnalysisRepository.findByStateCodeAndGroupKey(stateCode, groupKey);
     if (groupDocument == null) {
       throw new ResourceNotFoundException("Gingles data not found for group " + groupKey + " in state " + stateCode);
@@ -57,13 +66,15 @@ public class AnalysisService {
         stateCode,
         groupKey,
         resolveGroupLabel(groupKey, groupDocument.label()),
-        availableGroups(),
+        availableGroups(availableGroupKeys),
         mapGinglesPoints(groupDocument.points()),
         mapGinglesTrendRows(groupDocument.trendRows()),
         groupDocument.totalPointCount(),
         groupDocument.renderPointCount(),
+        groupDocument.modelType(),
         groupDocument.demCoefficients() == null ? List.of() : List.copyOf(groupDocument.demCoefficients()),
-        groupDocument.repCoefficients() == null ? List.of() : List.copyOf(groupDocument.repCoefficients())
+        groupDocument.repCoefficients() == null ? List.of() : List.copyOf(groupDocument.repCoefficients()),
+        mapGinglesModelCandidates(groupDocument.modelCandidates())
     );
   }
 
@@ -74,7 +85,7 @@ public class AnalysisService {
   )
   public EiResponse getEi(String rawStateCode, String rawGroup) {
     String stateCode = normalizeStateCode(rawStateCode);
-    String groupKey = normalizeGroupKey(rawGroup);
+    String groupKey = normalizeEiGroupKey(rawGroup);
     EiGroupDocument groupDocument = eiAnalysisRepository.findByStateCodeAndGroupKey(stateCode, groupKey);
     if (groupDocument == null) {
       throw new ResourceNotFoundException("EI data not found for group " + groupKey + " in state " + stateCode);
@@ -90,14 +101,14 @@ public class AnalysisService {
         groupKey,
         groupLabel,
         nonGroupLabel,
-        availableGroups(),
+        availableGroups(EI_AVAILABLE_GROUP_KEYS),
         mapDensityRows(groupDocument.demRows()),
         mapDensityRows(groupDocument.repRows())
     );
   }
 
-  private List<AnalysisGroupOptionResponse> availableGroups() {
-    return AVAILABLE_GROUP_KEYS.stream()
+  private List<AnalysisGroupOptionResponse> availableGroups(List<String> groupKeys) {
+    return groupKeys.stream()
         .map(key -> new AnalysisGroupOptionResponse(key, GROUP_LABELS.getOrDefault(key, key)))
         .toList();
   }
@@ -128,12 +139,26 @@ public class AnalysisService {
             point.x(),
             point.demSharePct(),
             point.repSharePct(),
+            point.winningParty(),
             point.democraticVotes(),
             point.republicanVotes(),
             point.totalPopulation(),
-            point.whitePopulation(),
-            point.latinoPopulation(),
-            point.minorityNonWhitePopulation()
+            point.groupPercentages(),
+            point.groupPopulations()
+        ))
+        .toList();
+  }
+
+  private List<GinglesModelCandidateResponse> mapGinglesModelCandidates(List<GinglesModelCandidateDocument> candidates) {
+    if (candidates == null) {
+      return List.of();
+    }
+    return candidates.stream()
+        .map(candidate -> new GinglesModelCandidateResponse(
+            candidate.modelType(),
+            candidate.demRmse(),
+            candidate.repRmse(),
+            candidate.totalRmse()
         ))
         .toList();
   }
@@ -154,13 +179,37 @@ public class AnalysisService {
     return stateCode.trim().toUpperCase();
   }
 
-  private String normalizeGroupKey(String rawGroup) {
+  private String normalizeGinglesGroupKey(String rawGroup, List<String> availableGroupKeys) {
+    if (availableGroupKeys == null || availableGroupKeys.isEmpty()) {
+      throw new BadRequestException("No analysis groups available for this state");
+    }
+
+    if (rawGroup == null || rawGroup.isBlank()) {
+      for (String groupKey : availableGroupKeys) {
+        if (DEFAULT_GROUP.equalsIgnoreCase(groupKey)) {
+          return groupKey;
+        }
+      }
+      return availableGroupKeys.get(0);
+    }
+
+    String lowered = rawGroup.trim().toLowerCase();
+    for (String validGroup : availableGroupKeys) {
+      if (validGroup.equalsIgnoreCase(lowered)) {
+        return validGroup;
+      }
+    }
+
+    throw new BadRequestException("Unsupported analysis group: " + rawGroup);
+  }
+
+  private String normalizeEiGroupKey(String rawGroup) {
     if (rawGroup == null || rawGroup.isBlank()) {
       return DEFAULT_GROUP;
     }
 
     String lowered = rawGroup.trim().toLowerCase();
-    for (String validGroup : AVAILABLE_GROUP_KEYS) {
+    for (String validGroup : EI_AVAILABLE_GROUP_KEYS) {
       if (validGroup.equalsIgnoreCase(lowered)) {
         return validGroup;
       }
