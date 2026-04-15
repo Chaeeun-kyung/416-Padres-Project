@@ -22,40 +22,33 @@ function formatPct(value) {
 
 function getGroupColumnLabel(selectedGroupLabel) {
   const label = String(selectedGroupLabel ?? '').trim()
-  return label ? `${label} CVAP` : 'Selected Group CVAP'
+  return label ? `${label} CVAP %` : 'Selected Group CVAP %'
 }
 
-function getSelectedGroupPopulation(row, selectedGroupKey) {
+function getWinnerLabel(value) {
+  const winner = String(value ?? '').trim().toUpperCase()
+  if (winner === 'DEMOCRATIC') {
+    return 'Democratic'
+  }
+  if (winner === 'REPUBLICAN') {
+    return 'Republican'
+  }
+  if (winner === 'TIE') {
+    return 'Tie'
+  }
+  return 'N/A'
+}
+
+function getSelectedGroupPercent(row, selectedGroupKey) {
   const key = String(selectedGroupKey ?? '').trim().toLowerCase()
-  const totalPopulation = Number(row?.totalPopulation)
-  const selectedGroupPct = Number(row?.x)
-
-  // Prefer explicit per-group population fields from preprocessing output.
-  if (key === 'white_pct') {
-    const whitePopulation = Number(row?.whitePopulation)
-    if (Number.isFinite(whitePopulation)) {
-      return whitePopulation
+  const map = row?.groupPercentages
+  if (map && typeof map === 'object') {
+    const value = Number(map[key])
+    if (Number.isFinite(value)) {
+      return value
     }
   }
-
-  if (key === 'latino_pct') {
-    const latinoPopulation = Number(row?.latinoPopulation)
-    if (Number.isFinite(latinoPopulation)) {
-      return latinoPopulation
-    }
-    // Legacy alias while older payloads are phased out.
-    const legacyLatinoPopulation = Number(row?.minorityNonWhitePopulation)
-    if (Number.isFinite(legacyLatinoPopulation)) {
-      return legacyLatinoPopulation
-    }
-  }
-
-  // Fallback for any group without explicit population columns.
-  if (Number.isFinite(totalPopulation) && Number.isFinite(selectedGroupPct)) {
-    return (totalPopulation * selectedGroupPct) / 100
-  }
-
-  return NaN
+  return Number(row?.x)
 }
 
 function GinglesPointsTable({
@@ -153,17 +146,19 @@ function GinglesPointsTable({
       <div ref={scrollContainerRef} style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <table style={{ width: '100%', minWidth: 760, tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
           <colgroup>
-            <col style={{ width: '24%' }} />
-            <col style={{ width: '12.666%' }} />
-            <col style={{ width: '12.666%' }} />
-            <col style={{ width: '12.666%' }} />
-            <col style={{ width: '12.666%' }} />
-            <col style={{ width: '12.666%' }} />
-            <col style={{ width: '12.666%' }} />
+          <col style={{ width: '24%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
+            <col style={{ width: '11%' }} />
           </colgroup>
           <thead>
             <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--ui-border)' }}>
               <th style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1, padding: 6 }}>Precinct (PID)</th>
+              <th style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1, padding: 6 }}>Winner</th>
               <th style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1, padding: 6, textAlign: 'right' }}>Total CVAP</th>
               <th style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1, padding: 6, textAlign: 'right' }}>{groupPopulationColumnLabel}</th>
               <th style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1, padding: 6, textAlign: 'right' }}>Dem Votes</th>
@@ -211,9 +206,10 @@ function GinglesPointsTable({
                   >
                     {displayPid}
                   </td>
+                  <td style={{ padding: 6 }}>{getWinnerLabel(row?.winningParty)}</td>
                   <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatWholeNumber(row?.totalPopulation)}</td>
                   <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                    {formatWholeNumber(getSelectedGroupPopulation(row, selectedGroupKey))}
+                    {formatPct(getSelectedGroupPercent(row, selectedGroupKey))}
                   </td>
                   <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatWholeNumber(row?.democraticVotes)}</td>
                   <td style={{ padding: 6, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{formatWholeNumber(row?.republicanVotes)}</td>

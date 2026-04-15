@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-10T15:54:44.209028+00:00",
+  "generated_at_utc": "2026-04-14T20:28:42.586977+00:00",
   "inputs": [
     "public\\geojson\\AZ-precincts-with-results-cvap.geojson",
     "public\\geojson\\CO-precincts-with-results-cvap.geojson"
@@ -25,10 +25,37 @@
     "latino_pct": {
       "min": 0.0,
       "max": 0.9996470669478356
+    },
+    "black_pct": {
+      "min": 0.0,
+      "max": 0.5455439314826421
+    },
+    "asian_pct": {
+      "min": 0.0,
+      "max": 0.9938609013759704
     }
   },
   "groups": [
     "white_pct",
-    "latino_pct"
-  ]
+    "latino_pct",
+    "black_pct",
+    "asian_pct"
+  ],
+  "groupLabels": {
+    "white_pct": "White",
+    "latino_pct": "Latino",
+    "black_pct": "Black",
+    "asian_pct": "Asian"
+  },
+  "feasibleGroupThresholdCvap": 400000.0,
+  "stateFeasibleGroups": {
+    "AZ": [
+      "white_pct",
+      "latino_pct"
+    ],
+    "CO": [
+      "white_pct",
+      "latino_pct"
+    ]
+  }
 }

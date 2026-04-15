@@ -11,7 +11,9 @@ public record GinglesResponse(
     List<GinglesTrendPointResponse> trendRows,
     Integer totalPointCount,
     Integer renderPointCount,
+    String modelType,
     List<Double> demCoefficients,
-    List<Double> repCoefficients
+    List<Double> repCoefficients,
+    List<GinglesModelCandidateResponse> modelCandidates
 ) {
 }

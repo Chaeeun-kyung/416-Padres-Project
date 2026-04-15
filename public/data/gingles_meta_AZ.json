@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-10T15:54:44.209028+00:00",
+  "generated_at_utc": "2026-04-14T20:28:42.586977+00:00",
   "state": "AZ",
   "inputs": [
     "public\\geojson\\AZ-precincts-with-results-cvap.geojson"
@@ -25,10 +25,37 @@
     "latino_pct": {
       "min": 0.0,
       "max": 0.9996470669478356
+    },
+    "black_pct": {
+      "min": 0.0,
+      "max": 0.4594466428660545
+    },
+    "asian_pct": {
+      "min": 0.0,
+      "max": 0.3086324768237063
     }
   },
   "groups": [
     "white_pct",
+    "latino_pct",
+    "black_pct",
+    "asian_pct"
+  ],
+  "groupLabels": {
+    "white_pct": "White",
+    "latino_pct": "Latino",
+    "black_pct": "Black",
+    "asian_pct": "Asian"
+  },
+  "statewideGroupCvap": {
+    "white_pct": 3296236.7370576165,
+    "latino_pct": 1296044.4777752766,
+    "black_pct": 236878.01299818954,
+    "asian_pct": 146698.78425349217
+  },
+  "feasibleGroups": [
+    "white_pct",
     "latino_pct"
-  ]
+  ],
+  "feasibleGroupThresholdCvap": 400000.0
 }
