@@ -177,6 +177,8 @@ function EICurve({ stateCode }) {
     ?? (selectedGroupLabel ? `Non-${selectedGroupLabel}` : 'Non-selected group')
   const demRows = Array.isArray(analysis?.demRows) ? analysis.demRows : []
   const repRows = Array.isArray(analysis?.repRows) ? analysis.repRows : []
+  const demCandidateLabel = getSafeString(analysis?.demCandidateLabel) || 'Kamala Harris'
+  const repCandidateLabel = getSafeString(analysis?.repCandidateLabel) || 'Donald Trump'
 
   return (
     <div style={{ width: '100%', height: '100%' }}>
@@ -235,13 +237,13 @@ function EICurve({ stateCode }) {
           }}
         >
           <CurvePanel
-            title="Support for Democratic Candidate"
+            title={`Support for ${demCandidateLabel}`}
             data={demRows}
             labelA={selectedGroupLabel}
             labelB={nonSelectedGroupLabel}
           />
           <CurvePanel
-            title="Support for Republican Candidate"
+            title={`Support for ${repCandidateLabel}`}
             data={repRows}
             labelA={selectedGroupLabel}
             labelB={nonSelectedGroupLabel}

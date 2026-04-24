@@ -1,3 +1,6 @@
+# Gingles preprocessing
+# Build precinct-level race-vote/minority-share points, infer feasible groups by statewide CVAP,
+# fit non-linear trend curves per group, and write frontend/backend JSON artifacts.
 
 import argparse
 import glob
@@ -45,6 +48,7 @@ MODEL_KEYS = (
 
 
 def to_number(value):
+    # Parse numeric values defensively; reject NaN/inf to avoid model instability.
     try:
         number = float(value)
     except (TypeError, ValueError):
@@ -53,6 +57,7 @@ def to_number(value):
 
 
 def pick_number(props, keys):
+    # Field precedence resolver for heterogeneous source schemas.
     for key in keys:
         number = to_number(props.get(key))
         if number is not None:
@@ -65,6 +70,7 @@ def clamp01(value):
 
 
 def clamp_probability(value, epsilon=1e-6):
+    # Keep probabilities away from exact 0/1 for logit model stability.
     bounded = clamp01(value)
     if bounded <= epsilon:
         return epsilon
@@ -74,6 +80,7 @@ def clamp_probability(value, epsilon=1e-6):
 
 
 def solve_linear_system(matrix, vector):
+    # Gaussian elimination with partial pivoting for least-squares normal equations.
     n = len(vector)
     augmented = [list(row) + [vector[index]] for index, row in enumerate(matrix)]
 
@@ -107,6 +114,7 @@ def solve_linear_system(matrix, vector):
 
 
 def model_basis(model_key, x):
+    # Basis functions for supported non-linear regression model families.
     safe_x = clamp01(x)
     if model_key == "quadratic_polynomial":
         return [1.0, safe_x, safe_x * safe_x]
@@ -125,6 +133,7 @@ def model_basis(model_key, x):
 
 
 def fit_model(points, y_key, model_key):
+    # Fit coefficients for one party curve under a chosen model type.
     if model_key == "logit_linear":
         if len(points) < 2:
             return None
@@ -182,6 +191,7 @@ def fit_model(points, y_key, model_key):
 
 
 def predict_model(model_key, coefficients, x):
+    # Evaluate fitted model at x; returns probability in [0,1]-like range before clamping.
     if model_key == "logit_linear":
         if len(coefficients) != 2:
             return None
@@ -205,6 +215,7 @@ def predict_model(model_key, coefficients, x):
 
 
 def compute_rmse(points, y_key, model_key, coefficients):
+    # Compute fit error to compare candidate model types.
     if not points:
         return None
 
@@ -225,6 +236,7 @@ def compute_rmse(points, y_key, model_key, coefficients):
 
 
 def select_best_model(fit_points):
+    # Try all enabled model families and keep the lowest combined DEM+REP RMSE.
     best_choice = None
     candidates = []
 
@@ -263,6 +275,7 @@ def select_best_model(fit_points):
 
 
 def build_trend_rows(rows, group):
+    # Action 1: collect valid points for this group and select a regression model.
     fit_points = []
     for row in rows:
         x = to_number(row.get(group))
@@ -282,6 +295,7 @@ def build_trend_rows(rows, group):
             "model_candidates": candidates,
         }
 
+    # Action 2: sample the selected model on a fixed grid for chart trend rendering.
     trend_rows = []
     for index in range(TREND_POINT_COUNT):
         x = index / (TREND_POINT_COUNT - 1)
@@ -317,6 +331,7 @@ def winning_party(dem_votes, rep_votes):
 
 
 def normalize_group_values(props, total_cvap):
+    # Convert raw group populations into bounded percentages per precinct.
     group_populations = {}
     group_percentages = {}
     for group in GROUP_DEFINITIONS:
@@ -340,6 +355,7 @@ def rows_for_render(rows):
 
 
 def build_backend_group(rows, group):
+    # Build backend payload block: scatter points + fitted trend metadata for one group.
     render_rows = rows_for_render(rows)
     points = []
     for row in render_rows:
@@ -394,6 +410,7 @@ def build_backend_group(rows, group):
 
 
 def build_backend_payload(states):
+    # Build state-keyed backend payload using each state's feasible groups only.
     payload = {}
     for state_code, state in sorted(states.items()):
         rows = state["points"]
@@ -410,6 +427,7 @@ def build_backend_payload(states):
 
 
 def resolve_pid(props, index):
+    # Resolve a stable precinct identifier with fallback for malformed rows.
     for key in ("GEOID", "geoid", "PRECINCT", "precinct", "precinct_id", "pid", "id"):
         value = props.get(key)
         if value is None:
@@ -421,6 +439,7 @@ def resolve_pid(props, index):
 
 
 def resolve_state(props):
+    # Resolve two-letter state code from explicit code fields or STATEFP fallback.
     for key in ("state", "STATE", "state_code", "STATE_CODE", "postal"):
         value = props.get(key)
         if value is None:
@@ -436,6 +455,7 @@ def resolve_state(props):
 
 
 def compute_point(props, index, state_code=None):
+    # Parse one precinct into normalized chart row; drop when required fields are invalid.
     dem_votes = pick_number(props, ("votes_dem", "dem_votes", "DEM_VOTES"))
     rep_votes = pick_number(props, ("votes_rep", "rep_votes", "REP_VOTES"))
     if dem_votes is None or rep_votes is None:
@@ -492,6 +512,7 @@ def write_json(path, payload, compact=False):
 
 
 def resolve_input_paths(patterns):
+    # Expand files/directories/globs into a de-duplicated ordered input list.
     paths = []
     seen = set()
     for raw in patterns:
@@ -515,6 +536,7 @@ def resolve_input_paths(patterns):
 
 
 def parse_args(argv=None):
+    # Keep I/O destinations configurable for local runs and CI pipelines.
     parser = argparse.ArgumentParser(description="Preprocess precinct GeoJSON for Gingles chart.")
     parser.add_argument(
         "--input",
@@ -543,6 +565,7 @@ def new_state_bucket():
 
 
 def infer_feasible_groups(state_rows):
+    # Feasible groups are strictly those meeting the statewide CVAP threshold.
     statewide_totals = {group_key: 0.0 for group_key in GROUPS}
     for row in state_rows:
         populations = row.get("group_populations")
@@ -567,6 +590,7 @@ def main(argv=None):
     args = parse_args(argv)
     outdir = Path(args.outdir)
     backend_output = Path(args.backend_output)
+    # Action 1: resolve all inputs and fail early when nothing is processable.
     input_paths = resolve_input_paths(args.inputs or [DEFAULT_INPUT])
     if not input_paths:
         print(f"[error] No input files resolved from: {args.inputs or [DEFAULT_INPUT]}", file=sys.stderr)
@@ -577,6 +601,7 @@ def main(argv=None):
     total_features = 0
     dropped = 0
 
+    # Action 2: parse precinct features and accumulate normalized rows by state.
     for input_path in input_paths:
         if not input_path.exists():
             print(f"[warn] Input file not found (skipping): {input_path}", file=sys.stderr)
@@ -620,12 +645,14 @@ def main(argv=None):
         print("[error] No valid GeoJSON features were loaded from input files.", file=sys.stderr)
         return 1
 
+    # Action 3: compute statewide CVAP totals and feasible groups per state.
     for state in states.values():
         totals, feasible = infer_feasible_groups(state["points"])
         state["statewide_group_cvap"] = totals
         state["feasible_groups"] = feasible
 
     generated_at = datetime.now(timezone.utc).isoformat()
+    # Action 4: write shared frontend artifacts (points + global metadata).
     write_json(outdir / "gingles_points.json", points, compact=False)
     write_json(
         outdir / "gingles_meta.json",
@@ -641,6 +668,7 @@ def main(argv=None):
         },
     )
 
+    # Action 5: write per-state metadata for state-scoped UI queries.
     for state_code in sorted(states):
         state = states[state_code]
         write_json(
@@ -659,6 +687,7 @@ def main(argv=None):
             },
         )
 
+    # Action 6: write backend precomputed analysis payload.
     write_json(
         backend_output,
         {

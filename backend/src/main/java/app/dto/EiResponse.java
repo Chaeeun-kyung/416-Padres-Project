@@ -7,6 +7,8 @@ public record EiResponse(
     String groupKey,
     String groupLabel,
     String nonGroupLabel,
+    String demCandidateLabel,
+    String repCandidateLabel,
     List<AnalysisGroupOptionResponse> availableGroups,
     List<EiDensityPointResponse> demRows,
     List<EiDensityPointResponse> repRows
