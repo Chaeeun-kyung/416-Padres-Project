@@ -1,5 +1,8 @@
-#!/usr/bin/env python3
 from __future__ import annotations
+
+# Prepro-11 enacted-plan boxplot preprocessing.
+# For each state, aggregate precinct CVAP into enacted districts, compute minority percentages,
+# keep only feasible groups (statewide CVAP >= threshold), and write sorted enacted dots JSON.
 
 import argparse
 import json
@@ -42,6 +45,7 @@ GROUP_BY_KEY = {spec["key"]: spec for spec in GROUP_SPECS}
 
 
 def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
+    # Keep CLI knobs explicit so threshold/input/output can be tuned without code edits.
     parser = argparse.ArgumentParser(
         description="Prepro-11: compute enacted-plan district minority percentages for boxplot dots."
     )
@@ -68,6 +72,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
 
 
 def to_number(value):
+    # Defensive parsing: reject non-finite values so downstream math stays stable.
     if value is None:
         return None
     if isinstance(value, bool):
@@ -91,6 +96,7 @@ def clamp01(value: float) -> float:
 
 
 def pick_number(props, keys):
+    # Use first available numeric field from the provided precedence order.
     for key in keys:
         number = to_number(props.get(key))
         if number is not None:
@@ -99,6 +105,7 @@ def pick_number(props, keys):
 
 
 def pick_share(props, keys):
+    # Accept both [0,1] and [0,100] percentage formats from heterogeneous inputs.
     for key in keys:
         number = to_number(props.get(key))
         if number is None:
@@ -110,6 +117,7 @@ def pick_share(props, keys):
 
 
 def normalize_state_code(path: Path, props: dict) -> str | None:
+    # Prefer property state code, then fallback to file-name prefix (e.g., AZ-...).
     raw_state = str(props.get("state") or "").strip().upper()
     if len(raw_state) == 2 and raw_state.isalpha():
         return raw_state
@@ -130,6 +138,7 @@ def normalize_district_number(value) -> str | None:
 
 
 def infer_district_number(props: dict) -> str | None:
+    # Try canonical district fields first, then parse district_name as a fallback.
     district_number = normalize_district_number(props.get("district_number"))
     if district_number:
         return district_number
@@ -151,6 +160,7 @@ def district_label(state_code: str, district_number: str) -> str:
 
 
 def resolve_group_population(props: dict, total_cvap: float, spec: dict) -> float:
+    # Resolve group population from count when available; otherwise derive from share.
     count = pick_number(props, spec["count_keys"])
     share = pick_share(props, spec["pct_keys"])
 
@@ -162,24 +172,16 @@ def resolve_group_population(props: dict, total_cvap: float, spec: dict) -> floa
 
 
 def choose_feasible_groups(statewide_group_population: dict[str, float], threshold: float) -> list[str]:
-    feasible = [
+    # Strict feasibility rule: include only groups meeting statewide CVAP threshold.
+    return [
         key
         for key in GROUP_BY_KEY
         if statewide_group_population.get(key, 0.0) >= threshold
     ]
-    if feasible:
-        return feasible
-
-    ranked = sorted(
-        GROUP_BY_KEY,
-        key=lambda key: statewide_group_population.get(key, 0.0),
-        reverse=True,
-    )
-    fallback = [key for key in ranked if statewide_group_population.get(key, 0.0) > 0.0]
-    return fallback[:2]
 
 
 def process_file(path: Path, threshold: float):
+    # Action 1: load precinct-level enacted dataset for one state file.
     with path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
 
@@ -188,6 +190,7 @@ def process_file(path: Path, threshold: float):
     statewide_group_population = {key: 0.0 for key in GROUP_BY_KEY}
     state_code = None
 
+    # Action 2: aggregate precinct totals into enacted-district totals.
     for feature in features:
         props = feature.get("properties") or {}
         current_state = normalize_state_code(path, props)
@@ -223,6 +226,7 @@ def process_file(path: Path, threshold: float):
     if not state_code:
         return None, None
 
+    # Action 3: determine feasible groups and compute district-level enacted percentages.
     feasible_groups = choose_feasible_groups(statewide_group_population, max(0.0, threshold))
     groups_payload = {}
 
@@ -235,6 +239,7 @@ def process_file(path: Path, threshold: float):
             group_total = float(totals["group_population"].get(group_key, 0.0))
             enacted[district_id] = clamp01(group_total / total)
 
+        # Action 4: sort district dots by value so frontend can render stable left-to-right dots.
         district_order = [
             district_id
             for district_id, _ in sorted(
@@ -254,12 +259,14 @@ def process_file(path: Path, threshold: float):
 
 def main(argv: Iterable[str] | None = None) -> int:
     args = parse_args(argv)
+    # Resolve all input files before processing so failures are explicit early.
     input_paths = sorted(Path().glob(args.input_glob))
     if not input_paths:
         print(f"[error] No files matched: {args.input_glob}")
         return 1
 
     result = {}
+    # Process each state file independently and merge into one backend resource payload.
     for path in input_paths:
         state_code, state_payload = process_file(path, args.min_statewide_group_population)
         if not state_code or not state_payload:
@@ -274,6 +281,7 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    # Write deterministic JSON artifact consumed by backend seeding.
     with output_path.open("w", encoding="utf-8") as handle:
         json.dump(result, handle, indent=2)
         handle.write("\n")

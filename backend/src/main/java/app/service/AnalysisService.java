@@ -25,6 +25,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class AnalysisService {
   private static final String DEFAULT_GROUP = "latino_pct";
+  private static final String DEFAULT_DEM_CANDIDATE_LABEL = "Kamala Harris";
+  private static final String DEFAULT_REP_CANDIDATE_LABEL = "Donald Trump";
   private static final Map<String, String> GROUP_LABELS = Map.of(
       "white_pct", "White",
       "latino_pct", "Latino",
@@ -95,12 +97,16 @@ public class AnalysisService {
     String nonGroupLabel = groupLabel.isBlank()
         ? "Non-selected group"
         : "Non-" + groupLabel;
+    String demCandidateLabel = resolveCandidateLabel(groupDocument.demCandidateLabel(), DEFAULT_DEM_CANDIDATE_LABEL);
+    String repCandidateLabel = resolveCandidateLabel(groupDocument.repCandidateLabel(), DEFAULT_REP_CANDIDATE_LABEL);
 
     return new EiResponse(
         stateCode,
         groupKey,
         groupLabel,
         nonGroupLabel,
+        demCandidateLabel,
+        repCandidateLabel,
         availableGroups(EI_AVAILABLE_GROUP_KEYS),
         mapDensityRows(groupDocument.demRows()),
         mapDensityRows(groupDocument.repRows())
@@ -118,6 +124,13 @@ public class AnalysisService {
       return explicitLabel;
     }
     return GROUP_LABELS.getOrDefault(groupKey, groupKey);
+  }
+
+  private String resolveCandidateLabel(String explicitLabel, String fallback) {
+    if (explicitLabel != null && !explicitLabel.isBlank()) {
+      return explicitLabel;
+    }
+    return fallback;
   }
 
   private List<EiDensityPointResponse> mapDensityRows(List<EiDensityPointDocument> rows) {

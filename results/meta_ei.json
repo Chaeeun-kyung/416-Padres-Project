@@ -1,0 +1,139 @@
+{
+  "generatedAtUtc": "2026-04-24T11:30:44.362342+00:00",
+  "config": {
+    "states": [
+      "AZ",
+      "CO"
+    ],
+    "inputTemplate": "results/seawulf_inputs/{state}/{state}_precinct_attributes.json",
+    "model": "king99_pareto_modification",
+    "minStatewideGroupCvap": 400000.0,
+    "gridPoints": 121,
+    "tune": 350,
+    "draws": 350,
+    "chains": 2,
+    "cores": 1,
+    "targetAccept": 0.99,
+    "seed": 416,
+    "demCandidateLabel": "Kamala Harris",
+    "repCandidateLabel": "Donald Trump"
+  },
+  "validation": [
+    {
+      "state": "AZ",
+      "groupKey": "white_pct",
+      "groupLabel": "White",
+      "usedPrecincts": 1694,
+      "observedDemShare": 0.4720578547255978,
+      "reconstructedDemShare": 0.4709528300383501,
+      "balanceErrorAbs": 0.0011050246872477132,
+      "statewideGroupShareWeightedByVotes": 0.6610855967744735,
+      "groupDemSupportMean": 0.346448483363327,
+      "groupDemSupportCI95": [
+        0.33885296288159067,
+        0.3541497678367699
+      ],
+      "nonGroupDemSupportMean": 0.7138107007553485,
+      "nonGroupDemSupportCI95": [
+        0.6982764510831482,
+        0.729809247260904
+      ],
+      "rhatMax": 1.031505317139006,
+      "essBulkMin": 360.66916256361066,
+      "warnings": [],
+      "inputPath": "results\\seawulf_inputs\\AZ\\AZ_precinct_attributes.json",
+      "rawPrecinctRows": 1694,
+      "droppedRows": 0,
+      "statewideGroupCvap": 3296270.8680957803,
+      "demCandidateLabel": "Kamala Harris",
+      "repCandidateLabel": "Donald Trump"
+    },
+    {
+      "state": "AZ",
+      "groupKey": "latino_pct",
+      "groupLabel": "Latino",
+      "usedPrecincts": 1694,
+      "observedDemShare": 0.4720578547255978,
+      "reconstructedDemShare": 0.47272390458292163,
+      "balanceErrorAbs": 0.0006660498573238249,
+      "statewideGroupShareWeightedByVotes": 0.2124397977077817,
+      "groupDemSupportMean": 0.6661023814906657,
+      "groupDemSupportCI95": [
+        0.6440078328148765,
+        0.6875382314439346
+      ],
+      "nonGroupDemSupportMean": 0.42056118178947455,
+      "nonGroupDemSupportCI95": [
+        0.4145768225746022,
+        0.42699013722033435
+      ],
+      "rhatMax": 1.0370301917884932,
+      "essBulkMin": 562.4513605622628,
+      "warnings": [],
+      "inputPath": "results\\seawulf_inputs\\AZ\\AZ_precinct_attributes.json",
+      "rawPrecinctRows": 1694,
+      "droppedRows": 0,
+      "statewideGroupCvap": 1296044.4777752778,
+      "demCandidateLabel": "Kamala Harris",
+      "repCandidateLabel": "Donald Trump"
+    },
+    {
+      "state": "CO",
+      "groupKey": "white_pct",
+      "groupLabel": "White",
+      "usedPrecincts": 3162,
+      "observedDemShare": 0.5564488127154452,
+      "reconstructedDemShare": 0.5547976928761147,
+      "balanceErrorAbs": 0.0016511198393305282,
+      "statewideGroupShareWeightedByVotes": 0.7586288012165323,
+      "groupDemSupportMean": 0.5214926384663763,
+      "groupDemSupportCI95": [
+        0.5156903278698892,
+        0.52698199167704
+      ],
+      "nonGroupDemSupportMean": 0.6594753579358027,
+      "nonGroupDemSupportCI95": [
+        0.6433043929486707,
+        0.6763910835733863
+      ],
+      "rhatMax": 1.0431121573328177,
+      "essBulkMin": 593.9014557160427,
+      "warnings": [],
+      "inputPath": "results\\seawulf_inputs\\CO\\CO_precinct_attributes.json",
+      "rawPrecinctRows": 3162,
+      "droppedRows": 0,
+      "statewideGroupCvap": 3191459.083602734,
+      "demCandidateLabel": "Kamala Harris",
+      "repCandidateLabel": "Donald Trump"
+    },
+    {
+      "state": "CO",
+      "groupKey": "latino_pct",
+      "groupLabel": "Latino",
+      "usedPrecincts": 3162,
+      "observedDemShare": 0.5564488127154452,
+      "reconstructedDemShare": 0.5552816932532805,
+      "balanceErrorAbs": 0.0011671194621647452,
+      "statewideGroupShareWeightedByVotes": 0.15226070771355713,
+      "groupDemSupportMean": 0.5856995094682643,
+      "groupDemSupportCI95": [
+        0.5629449833861345,
+        0.6048491506240176
+      ],
+      "nonGroupDemSupportMean": 0.5498184119518996,
+      "nonGroupDemSupportCI95": [
+        0.545903267208666,
+        0.554387806150595
+      ],
+      "rhatMax": 1.033589674488717,
+      "essBulkMin": 284.71044569328484,
+      "warnings": [],
+      "inputPath": "results\\seawulf_inputs\\CO\\CO_precinct_attributes.json",
+      "rawPrecinctRows": 3162,
+      "droppedRows": 0,
+      "statewideGroupCvap": 738567.6249170145,
+      "demCandidateLabel": "Kamala Harris",
+      "repCandidateLabel": "Donald Trump"
+    }
+  ]
+}
