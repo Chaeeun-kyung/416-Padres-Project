@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "effectiveShareThreshold": 0.6,
+    "planCountPerEnsemble": 5000
+  },
+  "groupKey": "latino_pct",
+  "titleTemplate": "{groupLabel} effectiveness",
+  "legendLabels": {
+    "constrained": "Constrained: statewide score",
+    "nonVra": "Non-VRA"
+  },
+  "colors": {
+    "constrained": "#4f67b3",
+    "nonVra": "#59a966"
+  },
+  "profiles": {
+    "constrained": {
+      "centerRatio": 0.86,
+      "offsets": [-2, -1, 0, 1, 2],
+      "weights": [0.03, 0.17, 0.48, 0.25, 0.07]
+    },
+    "nonVra": {
+      "centerRatio": 0.67,
+      "offsets": [-2, -1, 0, 1, 2],
+      "weights": [0.08, 0.23, 0.34, 0.24, 0.11]
+    }
+  },
+  "annotations": {
+    "left": {
+      "text": "non-VRA",
+      "xRatio": 0.58,
+      "yRatio": 0.62
+    },
+    "right": {
+      "text": "s<sup>state</sup>",
+      "xRatio": 0.9,
+      "yRatio": 0.75
+    }
+  }
+}
