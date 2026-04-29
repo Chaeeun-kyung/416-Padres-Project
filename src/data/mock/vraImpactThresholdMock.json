@@ -1,0 +1,115 @@
+{
+  "meta": {
+    "effectiveShareThreshold": 0.5
+  },
+  "title": "VRA Impact Threshold",
+  "columns": {
+    "metric": "VRA Impact Threshold",
+    "raceBlind": "Race-Blind",
+    "vraConstrained": "VRA-Constrained"
+  },
+  "defaultGroupKey": "latino_pct",
+  "rowTemplates": {
+    "enacted": "Satisfies enacted effectiveness (>= {value} effective districts)",
+    "rough": "Satisfies rough proportionality (>= {value} effective districts)",
+    "joint": "Satisfies both conditions jointly (>= {value})"
+  },
+  "states": {
+    "AZ": {
+      "groups": {
+        "latino_pct": {
+          "groupLabel": "Latino",
+          "districtCount": 9,
+          "cvapPct": 0.26,
+          "enactedCount": 8,
+          "roughProportionalityTarget": 6,
+          "jointTarget": 8,
+          "metrics": {
+            "enactedThreshold": {
+              "raceBlind": 0.072,
+              "vraConstrained": 0.734
+            },
+            "roughProportionality": {
+              "raceBlind": 0.791,
+              "vraConstrained": 0.994
+            },
+            "joint": {
+              "raceBlind": 0.072,
+              "vraConstrained": 0.734
+            }
+          }
+        },
+        "white_pct": {
+          "groupLabel": "White",
+          "districtCount": 9,
+          "cvapPct": 0.53,
+          "enactedCount": 6,
+          "roughProportionalityTarget": 5,
+          "jointTarget": 6,
+          "metrics": {
+            "enactedThreshold": {
+              "raceBlind": 0.862,
+              "vraConstrained": 0.876
+            },
+            "roughProportionality": {
+              "raceBlind": 0.968,
+              "vraConstrained": 0.971
+            },
+            "joint": {
+              "raceBlind": 0.862,
+              "vraConstrained": 0.876
+            }
+          }
+        }
+      }
+    },
+    "DEFAULT": {
+      "groups": {
+        "latino_pct": {
+          "groupLabel": "Latino",
+          "districtCount": 9,
+          "cvapPct": 0.24,
+          "enactedCount": 7,
+          "roughProportionalityTarget": 6,
+          "jointTarget": 7,
+          "metrics": {
+            "enactedThreshold": {
+              "raceBlind": 0.118,
+              "vraConstrained": 0.682
+            },
+            "roughProportionality": {
+              "raceBlind": 0.704,
+              "vraConstrained": 0.985
+            },
+            "joint": {
+              "raceBlind": 0.118,
+              "vraConstrained": 0.682
+            }
+          }
+        },
+        "white_pct": {
+          "groupLabel": "White",
+          "districtCount": 9,
+          "cvapPct": 0.55,
+          "enactedCount": 6,
+          "roughProportionalityTarget": 5,
+          "jointTarget": 6,
+          "metrics": {
+            "enactedThreshold": {
+              "raceBlind": 0.841,
+              "vraConstrained": 0.861
+            },
+            "roughProportionality": {
+              "raceBlind": 0.963,
+              "vraConstrained": 0.969
+            },
+            "joint": {
+              "raceBlind": 0.841,
+              "vraConstrained": 0.861
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "preferredGroupOrder": ["latino_pct", "white_pct"],
+  "legendLabels": {
+    "raceBlind": "Race-Blind Ensemble",
+    "vraConstrained": "VRA-Constrained Ensemble",
+    "enacted": "Enacted Plan"
+  },
+  "colors": {
+    "raceBlind": "#3cbf7a",
+    "vraConstrained": "#7c4dbe",
+    "enacted": "#dc2626",
+    "enactedBorder": "#991b1b"
+  },
+  "title": "Minority Effectiveness Distribution by Ensemble Type",
+  "states": {
+    "AZ": {
+      "districtCount": 9,
+      "groups": {
+        "latino_pct": {
+          "label": "Latino",
+          "cvapPct": 0.26,
+          "enactedCount": 2,
+          "raceBlindCounts": [1, 2, 2, 2, 3, 3, 3, 3, 3, 4, 4, 4, 2, 3, 3, 4, 5, 2, 3, 4, 3, 2, 4, 3, 3, 5, 2, 3, 4, 3, 2, 1, 4, 3, 2, 5, 3, 4, 2, 3],
+          "vraConstrainedCounts": [3, 4, 4, 5, 5, 5, 6, 6, 5, 4, 5, 6, 7, 5, 4, 6, 5, 5, 6, 4, 5, 6, 7, 5, 4, 6, 5, 5, 6, 4, 5, 7, 6, 5, 4, 6, 5, 5, 6, 4]
+        },
+        "white_pct": {
+          "label": "White",
+          "cvapPct": 0.53,
+          "enactedCount": 6,
+          "raceBlindCounts": [3, 4, 4, 5, 5, 5, 6, 6, 5, 4, 5, 6, 7, 5, 4, 6, 5, 5, 6, 4, 5, 6, 7, 5, 4, 6, 5, 5, 6, 4, 5, 6, 5, 4, 6, 5, 5, 6, 4, 5],
+          "vraConstrainedCounts": [4, 4, 5, 5, 5, 6, 6, 6, 5, 5, 6, 6, 7, 5, 5, 6, 6, 5, 6, 5, 5, 6, 7, 5, 5, 6, 6, 5, 6, 5, 6, 6, 5, 5, 6, 6, 5, 6, 5, 6]
+        }
+      }
+    },
+    "DEFAULT": {
+      "districtCount": 9,
+      "groups": {
+        "latino_pct": {
+          "label": "Latino",
+          "cvapPct": 0.24,
+          "enactedCount": 7,
+          "raceBlindCounts": [2, 2, 3, 3, 3, 4, 4, 3, 2, 3, 4, 3, 2, 3, 3, 4, 5, 3, 2, 4, 3, 2, 4, 3, 3, 5, 2, 3, 4, 3],
+          "vraConstrainedCounts": [4, 4, 5, 5, 5, 6, 6, 5, 4, 5, 6, 5, 4, 5, 5, 6, 7, 5, 4, 6, 5, 4, 6, 5, 5, 7, 4, 5, 6, 5]
+        },
+        "white_pct": {
+          "label": "White",
+          "cvapPct": 0.55,
+          "enactedCount": 6,
+          "raceBlindCounts": [4, 4, 5, 5, 5, 6, 6, 5, 4, 5, 6, 5, 4, 5, 5, 6, 7, 5, 4, 6, 5, 4, 6, 5, 5, 7, 4, 5, 6, 5],
+          "vraConstrainedCounts": [4, 5, 5, 5, 6, 6, 6, 5, 5, 6, 6, 5, 5, 6, 5, 6, 7, 5, 5, 6, 6, 5, 6, 5, 6, 7, 5, 6, 6, 5]
+        }
+      }
+    }
+  }
+}

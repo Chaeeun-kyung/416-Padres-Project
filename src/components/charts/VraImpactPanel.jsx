@@ -5,10 +5,13 @@ import Info from '../../ui/components/Info'
 import SegmentedControl from '../../ui/components/SegmentedControl'
 import Select from '../../ui/components/Select'
 import { fetchStateSummary } from '../../services/summaryApi'
+import thresholdMock from '../../data/mock/vraImpactThresholdMock.json'
+import boxWhiskerMock from '../../data/mock/vraImpactBoxWhiskerMock.json'
+import histogramMock from '../../data/mock/vraImpactHistogramMock.json'
 
-const EFFECTIVE_SHARE_THRESHOLD = 0.5
-const HISTOGRAM_EFFECTIVE_SHARE_THRESHOLD = 0.6
-const MOCK_ENSEMBLE_PLAN_COUNT = 5000
+const EFFECTIVE_SHARE_THRESHOLD = Number(thresholdMock?.meta?.effectiveShareThreshold ?? 0.5)
+const HISTOGRAM_EFFECTIVE_SHARE_THRESHOLD = Number(histogramMock?.meta?.effectiveShareThreshold ?? 0.6)
+const MOCK_ENSEMBLE_PLAN_COUNT = Number(histogramMock?.meta?.planCountPerEnsemble ?? 5000)
 const ENSEMBLE_KEYS = ['raceBlind', 'vraConstrained']
 const SUBVIEW_OPTIONS = [
   { value: 'threshold', label: 'Threshold Table' },
@@ -26,6 +29,19 @@ const GROUP_LABEL_OVERRIDES = {
   asian_pct: 'Asian',
 }
 const panelCache = new Map()
+
+function normalizeStateCode(stateCode) {
+  return String(stateCode ?? '').trim().toUpperCase()
+}
+
+function getScopedMockState(statesMap, stateCode) {
+  const safeMap = statesMap ?? {}
+  const code = normalizeStateCode(stateCode)
+  if (code && safeMap[code]) return safeMap[code]
+  if (safeMap.DEFAULT) return safeMap.DEFAULT
+  const [firstKey] = Object.keys(safeMap)
+  return firstKey ? safeMap[firstKey] : null
+}
 
 function formatPercent(value) {
   if (!Number.isFinite(value)) return 'N/A'
@@ -99,13 +115,15 @@ function clampInt(value, min, max) {
 
 function buildMockHistogramCountsByDistrict(districtCount, mode) {
   const n = Math.max(1, Number(districtCount) || 1)
-  const center = mode === 'constrained'
-    ? clampInt(n * 0.86, 0, n)
-    : clampInt(n * 0.67, 0, n)
-  const offsets = [-2, -1, 0, 1, 2]
-  const weights = mode === 'constrained'
-    ? [0.03, 0.17, 0.48, 0.25, 0.07]
-    : [0.08, 0.23, 0.34, 0.24, 0.11]
+  const profile = histogramMock?.profiles?.[mode] ?? {}
+  const centerRatio = Number(profile?.centerRatio ?? (mode === 'constrained' ? 0.86 : 0.67))
+  const center = clampInt(n * centerRatio, 0, n)
+  const offsets = Array.isArray(profile?.offsets) ? profile.offsets.map((value) => Number(value)) : [-2, -1, 0, 1, 2]
+  const weights = Array.isArray(profile?.weights) ? profile.weights.map((value) => Number(value)) : (
+    mode === 'constrained'
+      ? [0.03, 0.17, 0.48, 0.25, 0.07]
+      : [0.08, 0.23, 0.34, 0.24, 0.11]
+  )
 
   const targets = offsets.map((offset, index) => {
     const raw = weights[index] * MOCK_ENSEMBLE_PLAN_COUNT
@@ -236,25 +254,133 @@ function buildGroupStats(groupKey, groupRecord, districtCount, cvapPct) {
   }
 }
 
+function buildThresholdMockStatsByGroup(stateCode) {
+  const stateEntry = getScopedMockState(thresholdMock?.states, stateCode)
+  const groups = stateEntry?.groups ?? {}
+  const out = {}
+
+  for (const [groupKey, groupData] of Object.entries(groups)) {
+    const districtCount = toSafeNumber(groupData?.districtCount)
+    const cvapPct = toSafeNumber(groupData?.cvapPct)
+    const enactedCount = toSafeNumber(groupData?.enactedCount)
+    const roughProportionalityTarget = toSafeNumber(groupData?.roughProportionalityTarget)
+    const jointTarget = toSafeNumber(groupData?.jointTarget)
+    const metrics = groupData?.metrics ?? {}
+
+    out[groupKey] = {
+      groupKey,
+      groupLabel: groupData?.groupLabel ?? groupLabel(groupKey),
+      cvapPct,
+      districtCount,
+      enactedCount,
+      roughProportionalityTarget,
+      jointTarget,
+      rbCounts: [],
+      vraCounts: [],
+      metrics: {
+        enactedThreshold: {
+          raceBlind: toSafeNumber(metrics?.enactedThreshold?.raceBlind),
+          vraConstrained: toSafeNumber(metrics?.enactedThreshold?.vraConstrained),
+        },
+        roughProportionality: {
+          raceBlind: toSafeNumber(metrics?.roughProportionality?.raceBlind),
+          vraConstrained: toSafeNumber(metrics?.roughProportionality?.vraConstrained),
+        },
+        joint: {
+          raceBlind: toSafeNumber(metrics?.joint?.raceBlind),
+          vraConstrained: toSafeNumber(metrics?.joint?.vraConstrained),
+        },
+      },
+    }
+  }
+
+  return out
+}
+
+function buildBoxMockStats(stateCode) {
+  const stateEntry = getScopedMockState(boxWhiskerMock?.states, stateCode)
+  const groups = stateEntry?.groups ?? {}
+  const defaultDistrictCount = toSafeNumber(stateEntry?.districtCount)
+  const out = []
+
+  for (const [groupKey, groupData] of Object.entries(groups)) {
+    const rbCounts = normalizeShares(groupData?.raceBlindCounts).map((value) => Math.round(value))
+    const vraCounts = normalizeShares(groupData?.vraConstrainedCounts).map((value) => Math.round(value))
+    const districtCount = Math.max(
+      1,
+      toSafeNumber(groupData?.districtCount) || defaultDistrictCount || 1,
+      ...rbCounts,
+      ...vraCounts,
+    )
+    const enactedCount = toSafeNumber(groupData?.enactedCount)
+    const cvapPct = toSafeNumber(groupData?.cvapPct)
+    const roughProportionalityTarget = Math.ceil(Math.max(0, cvapPct) * districtCount)
+    const jointTarget = Math.max(enactedCount, roughProportionalityTarget)
+
+    out.push({
+      groupKey,
+      groupLabel: groupData?.label ?? groupLabel(groupKey),
+      cvapPct,
+      districtCount,
+      enactedCount,
+      roughProportionalityTarget,
+      jointTarget,
+      rbCounts,
+      vraCounts,
+      metrics: {
+        enactedThreshold: {
+          raceBlind: proportionAtLeast(rbCounts, enactedCount),
+          vraConstrained: proportionAtLeast(vraCounts, enactedCount),
+        },
+        roughProportionality: {
+          raceBlind: proportionAtLeast(rbCounts, roughProportionalityTarget),
+          vraConstrained: proportionAtLeast(vraCounts, roughProportionalityTarget),
+        },
+        joint: {
+          raceBlind: proportionAtLeast(rbCounts, jointTarget),
+          vraConstrained: proportionAtLeast(vraCounts, jointTarget),
+        },
+      },
+    })
+  }
+
+  return out
+}
+
+function formatTemplate(template, value) {
+  return String(template ?? '').replace('{value}', String(value))
+}
+
 function ThresholdTable({ stats }) {
   if (!stats) return <div className="small-text muted-text">No threshold stats available.</div>
 
+  const columns = thresholdMock?.columns ?? {}
+  const rowTemplates = thresholdMock?.rowTemplates ?? {}
   const rows = [
     {
       key: 'enacted',
-      metric: `Satisfies enacted effectiveness (>= ${stats.enactedCount} effective districts)`,
+      metric: formatTemplate(
+        rowTemplates?.enacted ?? 'Satisfies enacted effectiveness (>= {value} effective districts)',
+        stats.enactedCount,
+      ),
       raceBlind: stats.metrics.enactedThreshold.raceBlind,
       vra: stats.metrics.enactedThreshold.vraConstrained,
     },
     {
       key: 'rough',
-      metric: `Satisfies rough proportionality (>= ${stats.roughProportionalityTarget} effective districts)`,
+      metric: formatTemplate(
+        rowTemplates?.rough ?? 'Satisfies rough proportionality (>= {value} effective districts)',
+        stats.roughProportionalityTarget,
+      ),
       raceBlind: stats.metrics.roughProportionality.raceBlind,
       vra: stats.metrics.roughProportionality.vraConstrained,
     },
     {
       key: 'joint',
-      metric: `Satisfies both conditions jointly (>= ${stats.jointTarget})`,
+      metric: formatTemplate(
+        rowTemplates?.joint ?? 'Satisfies both conditions jointly (>= {value})',
+        stats.jointTarget,
+      ),
       raceBlind: stats.metrics.joint.raceBlind,
       vra: stats.metrics.joint.vraConstrained,
     },
@@ -263,14 +389,14 @@ function ThresholdTable({ stats }) {
   return (
     <div style={{ width: '100%', overflowX: 'auto' }}>
       <div style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: 8 }}>
-        VRA Impact Threshold
+        {thresholdMock?.title ?? 'VRA Impact Threshold'}
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.84rem' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid var(--ui-border)', textAlign: 'left' }}>
-            <th style={{ padding: 8 }}>VRA Impact Threshold</th>
-            <th style={{ padding: 8, textAlign: 'right' }}>Race-Blind</th>
-            <th style={{ padding: 8, textAlign: 'right' }}>VRA-Constrained</th>
+            <th style={{ padding: 8 }}>{columns?.metric ?? 'VRA Impact Threshold'}</th>
+            <th style={{ padding: 8, textAlign: 'right' }}>{columns?.raceBlind ?? 'Race-Blind'}</th>
+            <th style={{ padding: 8, textAlign: 'right' }}>{columns?.vraConstrained ?? 'VRA-Constrained'}</th>
           </tr>
         </thead>
         <tbody>
@@ -292,7 +418,16 @@ function ThresholdTable({ stats }) {
 }
 
 function MinorityEffectivenessBoxPlot({ allStats }) {
-  const preferredGroupOrder = ['latino_pct', 'white_pct']
+  const preferredGroupOrder = Array.isArray(boxWhiskerMock?.preferredGroupOrder)
+    ? boxWhiskerMock.preferredGroupOrder
+    : ['latino_pct', 'white_pct']
+  const raceBlindLabel = boxWhiskerMock?.legendLabels?.raceBlind ?? 'Race-Blind Ensemble'
+  const vraConstrainedLabel = boxWhiskerMock?.legendLabels?.vraConstrained ?? 'VRA-Constrained Ensemble'
+  const enactedLabel = boxWhiskerMock?.legendLabels?.enacted ?? 'Enacted Plan'
+  const raceBlindColor = boxWhiskerMock?.colors?.raceBlind ?? '#3cbf7a'
+  const vraConstrainedColor = boxWhiskerMock?.colors?.vraConstrained ?? '#7c4dbe'
+  const enactedColor = boxWhiskerMock?.colors?.enacted ?? '#dc2626'
+  const enactedBorderColor = boxWhiskerMock?.colors?.enactedBorder ?? '#991b1b'
   const orderedStats = [...(allStats ?? [])].sort((left, right) => {
     const leftRank = preferredGroupOrder.indexOf(left.groupKey)
     const rightRank = preferredGroupOrder.indexOf(right.groupKey)
@@ -310,21 +445,21 @@ function MinorityEffectivenessBoxPlot({ allStats }) {
       type: 'box',
       x: rbX,
       y: stats.rbCounts,
-      name: 'Race-Blind Ensemble',
+      name: raceBlindLabel,
       legendgroup: ENSEMBLE_LABELS.raceBlind,
-      marker: { color: '#3cbf7a' },
+      marker: { color: raceBlindColor },
       boxpoints: false,
-      showlegend: traces.every((trace) => trace.name !== 'Race-Blind Ensemble'),
+      showlegend: traces.every((trace) => trace.name !== raceBlindLabel),
     })
     traces.push({
       type: 'box',
       x: vraX,
       y: stats.vraCounts,
-      name: 'VRA-Constrained Ensemble',
+      name: vraConstrainedLabel,
       legendgroup: ENSEMBLE_LABELS.vraConstrained,
-      marker: { color: '#7c4dbe' },
+      marker: { color: vraConstrainedColor },
       boxpoints: false,
-      showlegend: traces.every((trace) => trace.name !== 'VRA-Constrained Ensemble'),
+      showlegend: traces.every((trace) => trace.name !== vraConstrainedLabel),
     })
   }
 
@@ -333,12 +468,12 @@ function MinorityEffectivenessBoxPlot({ allStats }) {
     mode: 'markers',
     x: orderedStats.map((stats) => stats.groupLabel),
     y: orderedStats.map((stats) => stats.enactedCount),
-    name: 'Enacted Plan',
+    name: enactedLabel,
     marker: {
-      color: '#dc2626',
+      color: enactedColor,
       size: 9,
       symbol: 'circle',
-      line: { color: '#991b1b', width: 0.6 },
+      line: { color: enactedBorderColor, width: 0.6 },
     },
   }
 
@@ -355,7 +490,7 @@ function MinorityEffectivenessBoxPlot({ allStats }) {
         boxmode: 'group',
         margin: { l: 58, r: 10, t: 52, b: 58 },
         title: {
-          text: 'Minority Effectiveness Distribution by Ensemble Type',
+          text: boxWhiskerMock?.title ?? 'Minority Effectiveness Distribution by Ensemble Type',
           x: 0.5,
           xanchor: 'center',
           y: 0.98,
@@ -405,16 +540,16 @@ function MinorityEffectivenessHistogram({ stats }) {
         {
           type: 'histogram',
           x: constrainedSamples,
-          name: 'Constrained: statewide score',
-          marker: { color: '#4f67b3' },
+          name: histogramMock?.legendLabels?.constrained ?? 'Constrained: statewide score',
+          marker: { color: histogramMock?.colors?.constrained ?? '#4f67b3' },
           opacity: 0.7,
           xbins: { start, end, size: 1 },
         },
         {
           type: 'histogram',
           x: nonVraSamples,
-          name: 'Non-VRA',
-          marker: { color: '#59a966' },
+          name: histogramMock?.legendLabels?.nonVra ?? 'Non-VRA',
+          marker: { color: histogramMock?.colors?.nonVra ?? '#59a966' },
           opacity: 0.7,
           xbins: { start, end, size: 1 },
         },
@@ -424,7 +559,7 @@ function MinorityEffectivenessHistogram({ stats }) {
         barmode: 'overlay',
         margin: { l: 58, r: 10, t: 54, b: 58 },
         title: {
-          text: `${stats.groupLabel} effectiveness`,
+          text: String(histogramMock?.titleTemplate ?? '{groupLabel} effectiveness').replace('{groupLabel}', stats.groupLabel),
           x: 0.5,
           xanchor: 'center',
           y: 0.98,
@@ -446,20 +581,20 @@ function MinorityEffectivenessHistogram({ stats }) {
         },
         annotations: [
           {
-            x: clampInt(maxDistricts * 0.58, 0, maxDistricts),
-            y: peakCount * 0.62,
+            x: clampInt(maxDistricts * Number(histogramMock?.annotations?.left?.xRatio ?? 0.58), 0, maxDistricts),
+            y: peakCount * Number(histogramMock?.annotations?.left?.yRatio ?? 0.62),
             xref: 'x',
             yref: 'y',
-            text: 'non-VRA',
+            text: histogramMock?.annotations?.left?.text ?? 'non-VRA',
             showarrow: false,
             font: { size: 22, color: 'rgba(30, 41, 59, 0.82)' },
           },
           {
-            x: clampInt(maxDistricts * 0.9, 0, maxDistricts),
-            y: peakCount * 0.75,
+            x: clampInt(maxDistricts * Number(histogramMock?.annotations?.right?.xRatio ?? 0.9), 0, maxDistricts),
+            y: peakCount * Number(histogramMock?.annotations?.right?.yRatio ?? 0.75),
             xref: 'x',
             yref: 'y',
-            text: 's<sup>state</sup>',
+            text: histogramMock?.annotations?.right?.text ?? 's<sup>state</sup>',
             showarrow: false,
             font: { size: 22, color: 'rgba(30, 41, 59, 0.82)' },
           },
@@ -521,19 +656,44 @@ function VraImpactPanel({ stateCode }) {
     }
   }, [stateCode])
 
-  const groupOptions = useMemo(() => (
+  const thresholdMockStatsByGroup = useMemo(
+    () => buildThresholdMockStatsByGroup(stateCode),
+    [stateCode],
+  )
+  const thresholdMockOptions = useMemo(() => (
+    Object.values(thresholdMockStatsByGroup).map((groupStats) => ({
+      value: groupStats.groupKey,
+      label: groupStats.groupLabel ?? groupLabel(groupStats.groupKey),
+    }))
+  ), [thresholdMockStatsByGroup])
+
+  const fallbackGroupOptions = useMemo(() => (
     (dataset?.groupOptions ?? []).map((group) => ({
       value: group.key,
       label: group.label ?? groupLabel(group.key),
     }))
   ), [dataset])
 
-  const defaultLatinoValue = findLatinoGroupKey(dataset?.groupOptions)
-  const effectiveGroup = groupOptions.some((group) => group.value === selectedGroup)
-    ? selectedGroup
-    : defaultLatinoValue
+  const effectiveGroupOptions = thresholdMockOptions.length
+    ? thresholdMockOptions
+    : fallbackGroupOptions
 
-  const allStats = useMemo(() => {
+  const histogramGroupKey = String(histogramMock?.groupKey ?? 'latino_pct')
+  const defaultGroupFromMock = String(thresholdMock?.defaultGroupKey ?? '')
+  const defaultGroupCandidate = (
+    effectiveGroupOptions.some((option) => option.value === defaultGroupFromMock)
+      ? defaultGroupFromMock
+      : (
+        findLatinoGroupKey(
+          effectiveGroupOptions.map((option) => ({ key: option.value, label: option.label })),
+        )
+      )
+  )
+  const effectiveGroup = effectiveGroupOptions.some((group) => group.value === selectedGroup)
+    ? selectedGroup
+    : defaultGroupCandidate
+
+  const backendStats = useMemo(() => {
     if (!dataset) return []
     const districtCount = Number(dataset.districtCount ?? 0)
     const cvapMap = dataset.summary?.racialEthnicPopulationPct ?? {}
@@ -543,24 +703,41 @@ function VraImpactPanel({ stateCode }) {
     ))
   }, [dataset])
 
-  const selectedStats = allStats.find((row) => row.groupKey === effectiveGroup) ?? null
-  const latinoStats = allStats.find((row) => row.groupKey === defaultLatinoValue) ?? allStats[0] ?? null
+  const mockBoxStats = useMemo(() => buildBoxMockStats(stateCode), [stateCode])
+  const allStats = mockBoxStats.length ? mockBoxStats : backendStats
+  const hasAnyRenderableData = Boolean(effectiveGroupOptions.length && allStats.length)
+
+  const selectedStats = thresholdMockStatsByGroup[effectiveGroup]
+    ?? allStats.find((row) => row.groupKey === effectiveGroup)
+    ?? null
+  const latinoStats = allStats.find((row) => row.groupKey === histogramGroupKey)
+    ?? allStats.find((row) => row.groupKey === defaultGroupCandidate)
+    ?? allStats[0]
+    ?? null
+
+  useEffect(() => {
+    if (!effectiveGroupOptions.length) return
+    setSelectedGroup((current) => {
+      if (effectiveGroupOptions.some((option) => option.value === current)) return current
+      return defaultGroupCandidate
+    })
+  }, [effectiveGroupOptions, defaultGroupCandidate])
 
   if (loading) {
     return <div className="small-text muted-text">Loading VRA impact data...</div>
   }
 
-  if (error) {
+  if (error && !hasAnyRenderableData) {
     return <div className="small-text muted-text">Failed to load VRA impact data: {error}</div>
   }
 
-  if (!dataset || !groupOptions.length) {
+  if (!hasAnyRenderableData) {
     return <div className="small-text muted-text">No VRA impact data available.</div>
   }
 
   return (
     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontWeight: 700 }}>VRA Impact</div>
           <Info
@@ -569,31 +746,41 @@ function VraImpactPanel({ stateCode }) {
               <>
                 Frontend preview of minority-effectiveness impact by ensemble type.
                 <br />
-                Metrics use effectiveness threshold {`${(EFFECTIVE_SHARE_THRESHOLD * 100).toFixed(0)}%`} and feasible-group filtering from backend group options.
+                Metrics use effectiveness threshold {`${(EFFECTIVE_SHARE_THRESHOLD * 100).toFixed(0)}%`} with mock JSON values (backend fallback).
               </>
             )}
           />
         </div>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: subview === 'threshold' ? 'minmax(0, 1fr) auto' : 'minmax(0, 1fr)',
+          alignItems: 'center',
+          gap: 10,
+        }}
+      >
+        <div style={{ width: '100%' }}>
+          <SegmentedControl
+            ariaLabel="VRA impact subview selector"
+            value={subview}
+            onChange={setSubview}
+            options={SUBVIEW_OPTIONS}
+            columns={3}
+          />
+        </div>
+
         {subview === 'threshold' && (
-          <div style={{ width: 220 }}>
+          <div style={{ width: 260, maxWidth: '100%', justifySelf: 'end' }}>
             <Select
               ariaLabel="VRA impact feasible race selector"
               value={effectiveGroup}
               onChange={setSelectedGroup}
-              options={groupOptions}
+              options={effectiveGroupOptions}
             />
           </div>
         )}
-      </div>
-
-      <div style={{ width: 520, maxWidth: '100%' }}>
-        <SegmentedControl
-          ariaLabel="VRA impact subview selector"
-          value={subview}
-          onChange={setSubview}
-          options={SUBVIEW_OPTIONS}
-          columns={3}
-        />
       </div>
 
       <div style={{ flex: 1, minHeight: 0 }}>
