@@ -11,6 +11,7 @@ import EnsembleSplits from './charts/EnsembleSplits'
 import GinglesScatter from './charts/GinglesScatter'
 import EICurve from './charts/EICurve'
 import EnsembleBoxplot from './charts/EnsembleBoxplot'
+import VraImpactPanel from './charts/VraImpactPanel'
 import { fetchStateSummary } from '../services/summaryApi'
 
 const DEM_COLOR = '#2563eb'
@@ -34,6 +35,7 @@ const RIGHT_PANEL_VIEW_OPTIONS = [
 const ENSEMBLE_VIEW_OPTIONS = [
   { value: 'splits', label: 'Split Bars' },
   { value: 'boxplot', label: 'Box & Whisker' },
+  { value: 'vraImpact', label: 'VRA Impact' },
 ]
 
 const POLITICAL_CHART_HEIGHT = 180
@@ -598,16 +600,19 @@ function RightPanelPageOne({
         <Card title="Ensemble Analysis">
           <div style={{ width: '100%', height: 'min(68vh, 620px)', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <EnsembleSummaryStrip summary={summary} />
-            <div style={{ width: 360, maxWidth: '100%', marginBottom: 2 }}>
+            <div style={{ width: 520, maxWidth: '100%', marginBottom: 2 }}>
               <SegmentedControl
                 ariaLabel="Ensemble chart selector"
                 value={ensembleView}
                 onChange={setEnsembleView}
                 options={ENSEMBLE_VIEW_OPTIONS}
+                columns={3}
               />
             </div>
             <div style={{ flex: 1, minHeight: 0 }}>
-              {ensembleView === 'boxplot' ? <EnsembleBoxplot stateCode={selectedStateCode} /> : <EnsembleSplits stateCode={selectedStateCode} />}
+              {ensembleView === 'boxplot' && <EnsembleBoxplot stateCode={selectedStateCode} />}
+              {ensembleView === 'splits' && <EnsembleSplits stateCode={selectedStateCode} />}
+              {ensembleView === 'vraImpact' && <VraImpactPanel stateCode={selectedStateCode} />}
             </div>
           </div>
         </Card>
