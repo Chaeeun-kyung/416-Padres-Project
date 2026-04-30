@@ -135,9 +135,9 @@ function useVraImpactData(stateCode) {
     }))
   ), [dataset])
 
-  const effectiveGroupOptions = thresholdMockOptions.length
-    ? thresholdMockOptions
-    : fallbackGroupOptions
+  const effectiveGroupOptions = fallbackGroupOptions.length
+    ? fallbackGroupOptions
+    : thresholdMockOptions
 
   const histogramGroupKey = String(histogramMock?.groupKey ?? 'latino_pct')
   const defaultGroupFromMock = String(thresholdMock?.defaultGroupKey ?? '')
@@ -165,11 +165,11 @@ function useVraImpactData(stateCode) {
   }, [dataset])
 
   const mockBoxStats = useMemo(() => buildBoxMockStats(stateCode, boxWhiskerMock), [stateCode])
-  const allStats = mockBoxStats.length ? mockBoxStats : backendStats
+  const allStats = backendStats.length ? backendStats : mockBoxStats
   const hasAnyRenderableData = Boolean(effectiveGroupOptions.length && allStats.length)
 
-  const selectedStats = thresholdMockStatsByGroup[effectiveGroup]
-    ?? allStats.find((row) => row.groupKey === effectiveGroup)
+  const selectedStats = allStats.find((row) => row.groupKey === effectiveGroup)
+    ?? thresholdMockStatsByGroup[effectiveGroup]
     ?? null
   const latinoStats = allStats.find((row) => row.groupKey === histogramGroupKey)
     ?? allStats.find((row) => row.groupKey === defaultGroupCandidate)

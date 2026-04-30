@@ -7,7 +7,7 @@ import {
   expandCountsToHistogramSamples,
 } from './vraImpactUtils'
 
-const HISTOGRAM_EFFECTIVE_SHARE_THRESHOLD = Number(histogramMock?.meta?.effectiveShareThreshold ?? 0.6)
+const HISTOGRAM_EFFECTIVE_SHARE_THRESHOLD = 0.5
 const MOCK_ENSEMBLE_PLAN_COUNT = Number(histogramMock?.meta?.planCountPerEnsemble ?? 5000)
 
 function VraHistogramView({ stats }) {
@@ -16,15 +16,20 @@ function VraHistogramView({ stats }) {
   const maxDistricts = Math.max(1, stats.districtCount)
   const start = -0.5
   const end = maxDistricts + 0.5
-  const nonVraCounts = buildMockHistogramCountsByDistrict(maxDistricts, 'nonVra', histogramMock, MOCK_ENSEMBLE_PLAN_COUNT)
-  const constrainedCounts = buildMockHistogramCountsByDistrict(maxDistricts, 'constrained', histogramMock, MOCK_ENSEMBLE_PLAN_COUNT)
-  const nonVraSamples = expandCountsToHistogramSamples(nonVraCounts)
-  const constrainedSamples = expandCountsToHistogramSamples(constrainedCounts)
-  const peakCount = Math.max(
-    1,
-    ...Array.from(nonVraCounts.values()),
-    ...Array.from(constrainedCounts.values()),
-  )
+
+  const hasRealData = Array.isArray(stats.rbCounts) && stats.rbCounts.length > 0
+  const nonVraSamples = hasRealData
+    ? stats.rbCounts
+    : expandCountsToHistogramSamples(buildMockHistogramCountsByDistrict(maxDistricts, 'nonVra', histogramMock, MOCK_ENSEMBLE_PLAN_COUNT))
+  const constrainedSamples = hasRealData
+    ? stats.vraCounts
+    : expandCountsToHistogramSamples(buildMockHistogramCountsByDistrict(maxDistricts, 'constrained', histogramMock, MOCK_ENSEMBLE_PLAN_COUNT))
+  const binCounts = (samples) => {
+    const counts = {}
+    for (const v of samples) { counts[v] = (counts[v] ?? 0) + 1 }
+    return Object.values(counts)
+  }
+  const peakCount = Math.max(1, ...binCounts(nonVraSamples), ...binCounts(constrainedSamples))
 
   return (
     <Plot
@@ -60,7 +65,7 @@ function VraHistogramView({ stats }) {
         },
         showlegend: true,
         xaxis: {
-          title: { text: `Number of districts with ${stats.groupLabel} effectiveness > ${(HISTOGRAM_EFFECTIVE_SHARE_THRESHOLD * 100).toFixed(0)}%` },
+          title: { text: `Number of districts ≥ ${(HISTOGRAM_EFFECTIVE_SHARE_THRESHOLD * 100).toFixed(0)}% ${stats.groupLabel}` },
           dtick: 1,
           range: [start, end],
           automargin: true,
