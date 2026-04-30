@@ -275,7 +275,7 @@ def select_best_model(fit_points):
 
 
 def build_trend_rows(rows, group):
-    # Action 1: collect valid points for this group and select a regression model.
+    # Collect valid points for this group and select a regression model.
     fit_points = []
     for row in rows:
         x = to_number(row.get(group))
@@ -295,7 +295,7 @@ def build_trend_rows(rows, group):
             "model_candidates": candidates,
         }
 
-    # Action 2: sample the selected model on a fixed grid for chart trend rendering.
+    # Sample the selected model on a fixed grid for chart trend rendering.
     trend_rows = []
     for index in range(TREND_POINT_COUNT):
         x = index / (TREND_POINT_COUNT - 1)
@@ -590,7 +590,7 @@ def main(argv=None):
     args = parse_args(argv)
     outdir = Path(args.outdir)
     backend_output = Path(args.backend_output)
-    # Action 1: resolve all inputs and fail early when nothing is processable.
+    # Resolve all inputs and fail early when nothing is processable.
     input_paths = resolve_input_paths(args.inputs or [DEFAULT_INPUT])
     if not input_paths:
         print(f"[error] No input files resolved from: {args.inputs or [DEFAULT_INPUT]}", file=sys.stderr)
@@ -601,7 +601,7 @@ def main(argv=None):
     total_features = 0
     dropped = 0
 
-    # Action 2: parse precinct features and accumulate normalized rows by state.
+    # Parse precinct features and accumulate normalized rows by state.
     for input_path in input_paths:
         if not input_path.exists():
             print(f"[warn] Input file not found (skipping): {input_path}", file=sys.stderr)
@@ -645,14 +645,14 @@ def main(argv=None):
         print("[error] No valid GeoJSON features were loaded from input files.", file=sys.stderr)
         return 1
 
-    # Action 3: compute statewide CVAP totals and feasible groups per state.
+    # Compute statewide CVAP totals and feasible groups per state.
     for state in states.values():
         totals, feasible = infer_feasible_groups(state["points"])
         state["statewide_group_cvap"] = totals
         state["feasible_groups"] = feasible
 
     generated_at = datetime.now(timezone.utc).isoformat()
-    # Action 4: write shared frontend artifacts (points + global metadata).
+    # Write shared frontend artifacts (points + global metadata).
     write_json(outdir / "gingles_points.json", points, compact=False)
     write_json(
         outdir / "gingles_meta.json",
@@ -668,7 +668,7 @@ def main(argv=None):
         },
     )
 
-    # Action 5: write per-state metadata for state-scoped UI queries.
+    # Write per-state metadata for state-scoped UI queries.
     for state_code in sorted(states):
         state = states[state_code]
         write_json(
@@ -687,7 +687,7 @@ def main(argv=None):
             },
         )
 
-    # Action 6: write backend precomputed analysis payload.
+    # Write backend precomputed analysis payload.
     write_json(
         backend_output,
         {

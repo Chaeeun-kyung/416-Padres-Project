@@ -1,6 +1,6 @@
 # Precinct neighbor preprocessing
-# If two precincts share a common boundary of at least 200 feet and the edges of each precinct are within 200 feet of its neighbors’ edges, then they are considered neighbors.
-# This script computes neighbor lists for each precinct and writes them back into the GeoJSON properties.
+# If two precincts share at least 200 feet of boundary and their boundaries are within
+# 200 feet of each other, they are treated as neighbors.
 
 import argparse
 from pathlib import Path

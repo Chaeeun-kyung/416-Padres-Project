@@ -1,195 +1,74 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { GeoJSON, MapContainer, TileLayer, useMap, ZoomControl } from 'react-leaflet'
 import { feature } from 'topojson-client'
 import statesTopo from 'us-atlas/states-10m.json'
 import { resolveBinsForMetric, getColorForValue } from '../services/bins'
-import {
-  deriveStateBounds,
-  loadDistrictGeoJSON,
-  loadPrecinctGeoJSON,
-} from '../services/dataLoader'
 import { FIPS_TO_STATE_CODE, STATE_META } from '../data/stateMeta'
 import useAppStore from '../store/useAppStore'
+import useMapData from './map/useMapData'
+import {
+  DISTRICT_DEFAULT_STROKE,
+  DISTRICT_SELECTED_DEM_FILL,
+  DISTRICT_SELECTED_DEM_STROKE,
+  DISTRICT_SELECTED_NEUTRAL_FILL,
+  DISTRICT_SELECTED_NEUTRAL_STROKE,
+  DISTRICT_SELECTED_REP_FILL,
+  DISTRICT_SELECTED_REP_STROKE,
+  getDistrictColor,
+  getDistrictIdForFeature,
+  getGeometryBoundsCenter,
+  getGeometryFirstPoint,
+  pointInGeometry,
+  resolveMetricValue,
+} from './map/mapGeometryUtils'
 
-const DEMOGRAPHIC_FIELD_CANDIDATES = {
-  white_pct: ['PCT_CVAP_WHT'],
-  black_pct: ['PCT_CVAP_BLA'],
-  latino_pct: ['PCT_CVAP_HSP'],
-  asian_pct: ['PCT_CVAP_ASI'],
+const MAP_DEFAULT_CENTER = [39.1, -104.9]
+const MAP_DEFAULT_ZOOM = 7
+const MAP_MIN_ZOOM = 5
+const FIT_BOUNDS_PADDING = [20, 20]
+
+const LEGEND_LAYOUT = {
+  inset: 10,
+  zIndex: 500,
+  padding: 10,
+  minWidth: 170,
+  rowGap: 4,
+  colorBoxWidth: 16,
+  colorBoxHeight: 12,
+  colorBoxRadius: 2,
 }
 
-// Normalizes percentage values into 0..1 range:
-// - keeps decimal fractions (0.42)
-// - converts whole percentages (42 -> 0.42)
-function normalizePct(value) {
-  if (!Number.isFinite(value)) return null
-  if (value >= 0 && value <= 1) return value
-  if (value >= 0 && value <= 100) return value / 100
-  return null
+const PRECINCT_STYLE = {
+  strokeWeight: 0.22,
+  strokeOpacity: 0.45,
+  fillOpacity: 0.78,
+  outlineWeight: 0.3,
+  outlineOpacity: 0.9,
 }
 
-// Resolves the active metric from feature properties.
-// Supports both demographic heatmap metrics and Dem lead overlay metric.
-function resolveMetricValue(properties, metricKey) {
-  if (!metricKey) {
-    return null
-  }
-
-  if (metricKey === 'pct_dem_lead') {
-    const value = Number(properties?.pct_dem_lead)
-    return Number.isFinite(value) ? value : null
-  }
-
-  const candidates = DEMOGRAPHIC_FIELD_CANDIDATES[metricKey] ?? [metricKey]
-  for (let i = 0; i < candidates.length; i += 1) {
-    const normalized = normalizePct(Number(properties?.[candidates[i]]))
-    if (normalized !== null) {
-      return normalized
-    }
-  }
-
-  return null
+const DISTRICT_STYLE = {
+  selectedWeight: 5.4,
+  selectedFillOpacity: 0.6,
+  defaultWeight: 1.9,
+  defaultOpacity: 0.98,
+  defaultFillOpacity: 0.58,
 }
 
-// Converts district-like identifiers to canonical 2-digit code strings ("1" -> "01").
-function normalizeDistrictCode(rawCode) {
-  if (rawCode === null || rawCode === undefined) return null
-  const digits = String(rawCode).match(/\d+/)?.[0]
-  if (!digits) return null
-  return digits.padStart(2, '0')
+const BADGE_LAYOUT = {
+  inset: 10,
+  zIndex: 500,
+  paddingY: 5,
+  paddingX: 10,
+  gap: 6,
+  markerSize: 8,
 }
 
-// Builds canonical district IDs used by map + table selection ("CO-01", "AZ-08", ...).
-function getDistrictIdForFeature(featureProperties, stateCode) {
-  if (!featureProperties || !stateCode) return null
-  const directCode =
-    normalizeDistrictCode(featureProperties.CD119FP) ??
-    normalizeDistrictCode(featureProperties.DISTRICT) ??
-    normalizeDistrictCode(featureProperties.district) ??
-    normalizeDistrictCode(featureProperties.district_id)
-
-  if (directCode) return `${stateCode}-${directCode}`
-
-  const geoidCode = normalizeDistrictCode(featureProperties.GEOID)
-  return geoidCode ? `${stateCode}-${geoidCode}` : null
-}
-
-const DISTRICT_SELECTED_NEUTRAL_STROKE = '#166534'
-const DISTRICT_SELECTED_NEUTRAL_FILL = '#DCFCE7'
-const DISTRICT_SELECTED_DEM_STROKE = '#1D4ED8'
-const DISTRICT_SELECTED_DEM_FILL = '#DBEAFE'
-const DISTRICT_SELECTED_REP_STROKE = '#B91C1C'
-const DISTRICT_SELECTED_REP_FILL = '#FEE2E2'
-const DISTRICT_DEFAULT_STROKE = '#1f2937'
-
-// Used map color palette
-const DISTRICT_FILL_PALETTE = [
-  '#fbb2ff',
-  '#ffb4d8',
-  '#FCF6BD',
-  '#E6F5CE',
-  '#D0F4DE',
-  '#BDE9EC',
-  '#A9DEF9',
-  '#C7D0F9',
-  '#E4C1F9',
-]
-
-function getDistrictColor(districtId) {
-  const districtNum = parseInt(districtId?.split('-')[1] ?? '1', 10)
-  const safeDistrictNum = Number.isFinite(districtNum) && districtNum > 0 ? districtNum : 1
-  const paletteIndex = ((safeDistrictNum - 1) * 5) % DISTRICT_FILL_PALETTE.length
-  return DISTRICT_FILL_PALETTE[paletteIndex]
-}
-
-// Core point-in-polygon utilities used to map precinct clicks to district geometry.
-function pointInRing(point, ring) {
-  if (!Array.isArray(ring) || ring.length < 3) return false
-  const [x, y] = point
-  let inside = false
-
-  for (let i = 0, j = ring.length - 1; i < ring.length; j = i, i += 1) {
-    const [xi, yi] = ring[i]
-    const [xj, yj] = ring[j]
-    const intersects = yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi || Number.EPSILON) + xi
-    if (intersects) inside = !inside
-  }
-
-  return inside
-}
-
-function pointInPolygon(point, polygonCoords) {
-  if (!Array.isArray(polygonCoords) || !polygonCoords.length) return false
-  if (!pointInRing(point, polygonCoords[0])) return false
-
-  for (let i = 1; i < polygonCoords.length; i += 1) {
-    if (pointInRing(point, polygonCoords[i])) return false
-  }
-  return true
-}
-
-function pointInGeometry(point, geometry) {
-  if (!geometry) return false
-  if (geometry.type === 'Polygon') {
-    return pointInPolygon(point, geometry.coordinates)
-  }
-  if (geometry.type === 'MultiPolygon') {
-    return (geometry.coordinates ?? []).some((polygon) => pointInPolygon(point, polygon))
-  }
-  return false
-}
-
-// Defensive helpers used when exact centroid checks fail.
-// We try first-point and bounds-center fallbacks for robust district matching.
-function getGeometryFirstPoint(geometry) {
-  const coords = geometry?.coordinates
-  if (!Array.isArray(coords)) return null
-
-  function walk(node) {
-    if (!Array.isArray(node)) return null
-    if (typeof node[0] === 'number' && typeof node[1] === 'number') {
-      return [Number(node[0]), Number(node[1])]
-    }
-    for (let i = 0; i < node.length; i += 1) {
-      const found = walk(node[i])
-      if (found) return found
-    }
-    return null
-  }
-
-  return walk(coords)
-}
-
-function getGeometryBoundsCenter(geometry) {
-  const coords = geometry?.coordinates
-  if (!Array.isArray(coords)) return null
-
-  let minLng = Infinity
-  let minLat = Infinity
-  let maxLng = -Infinity
-  let maxLat = -Infinity
-
-  function walk(node) {
-    if (!Array.isArray(node)) return
-    if (typeof node[0] === 'number' && typeof node[1] === 'number') {
-      const lng = Number(node[0])
-      const lat = Number(node[1])
-      if (!Number.isFinite(lng) || !Number.isFinite(lat)) return
-      minLng = Math.min(minLng, lng)
-      minLat = Math.min(minLat, lat)
-      maxLng = Math.max(maxLng, lng)
-      maxLat = Math.max(maxLat, lat)
-      return
-    }
-    for (let i = 0; i < node.length; i += 1) {
-      walk(node[i])
-    }
-  }
-
-  walk(coords)
-
-  if (!Number.isFinite(minLng) || !Number.isFinite(minLat)) return null
-  return [(minLng + maxLng) / 2, (minLat + maxLat) / 2]
+const LOADING_OVERLAY = {
+  zIndex: 600,
+  background: 'rgba(255,255,255,0.65)',
+  cardPaddingY: 8,
+  cardPaddingX: 16,
+  gap: 8,
 }
 
 // Applies fitBounds when state data changes.
@@ -198,7 +77,7 @@ function BoundsController({ bounds }) {
 
   useEffect(() => {
     if (bounds) {
-      map.fitBounds(bounds, { padding: [20, 20] })
+      map.fitBounds(bounds, { padding: FIT_BOUNDS_PADDING })
     }
   }, [bounds, map])
 
@@ -251,21 +130,24 @@ function ChoroplethLegend({ binResult }) {
       className="panel-card"
       style={{
         position: 'absolute',
-        right: 10,
-        bottom: 10,
-        zIndex: 500,
-        padding: 10,
-        minWidth: 170,
+        right: LEGEND_LAYOUT.inset,
+        bottom: LEGEND_LAYOUT.inset,
+        zIndex: LEGEND_LAYOUT.zIndex,
+        padding: LEGEND_LAYOUT.padding,
+        minWidth: LEGEND_LAYOUT.minWidth,
       }}
     >
-      <div style={{ fontWeight: 700, marginBottom: 4 }}>{binResult.metricLabel}</div>
+      <div style={{ fontWeight: 700, marginBottom: LEGEND_LAYOUT.rowGap }}>{binResult.metricLabel}</div>
       {binResult.bins.map((bin, index) => (
-        <div key={`${bin.min}-${bin.max}`} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+        <div
+          key={`${bin.min}-${bin.max}`}
+          style={{ display: 'flex', alignItems: 'center', gap: BADGE_LAYOUT.gap, marginBottom: LEGEND_LAYOUT.rowGap }}
+        >
           <span
             style={{
-              width: 16,
-              height: 12,
-              borderRadius: 2,
+              width: LEGEND_LAYOUT.colorBoxWidth,
+              height: LEGEND_LAYOUT.colorBoxHeight,
+              borderRadius: LEGEND_LAYOUT.colorBoxRadius,
               background: binResult.colors[index],
               border: '1px solid var(--ui-border)',
             }}
@@ -291,54 +173,16 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
   const mapResetToken = useAppStore((state) => state.mapResetToken)
   const setSelectedDistrictId = useAppStore((state) => state.setSelectedDistrictId)
 
-  const [precinctGeojson, setPrecinctGeojson] = useState(null)
-  const [districtGeojson, setDistrictGeojson] = useState(null)
-  const [stateBounds, setStateBounds] = useState(null)
+  const { precinctGeojson, districtGeojson, stateBounds } = useMapData({
+    selectedStateCode,
+    precinctDataVariant,
+    onPrecinctGeojsonLoaded,
+    setLoadingMapData,
+    setMapError,
+  })
   const displayMetric = showDemLeadOverlay ? 'pct_dem_lead' : activeMetric
   const hasMetricSelection = Boolean(displayMetric)
   const datasetBadgeLabel = precinctDataVariant === 'cvap' ? 'Original CVAP' : 'Enacted + CVAP'
-
-  useEffect(() => {
-    let mounted = true
-    async function loadData() {
-      setLoadingMapData(true)
-      setMapError('')
-      setPrecinctGeojson(null)
-      setDistrictGeojson(null)
-      setStateBounds(null)
-      onPrecinctGeojsonLoaded(null)
-      try {
-        const [precinctData, explicitDistricts] = await Promise.all([
-          loadPrecinctGeoJSON(selectedStateCode, precinctDataVariant),
-          loadDistrictGeoJSON(selectedStateCode),
-        ])
-        if (!mounted) return
-
-        setPrecinctGeojson(precinctData)
-        onPrecinctGeojsonLoaded(precinctData)
-
-        const bounds = deriveStateBounds(
-          explicitDistricts?.features?.length ? explicitDistricts.features : precinctData?.features ?? [],
-        )
-        setStateBounds(bounds)
-
-        setDistrictGeojson(explicitDistricts)
-      } catch (error) {
-        if (!mounted) return
-        setPrecinctGeojson(null)
-        setDistrictGeojson(null)
-        onPrecinctGeojsonLoaded(null)
-        setMapError(error.message ?? 'Failed to load map data.')
-      } finally {
-        if (mounted) setLoadingMapData(false)
-      }
-    }
-
-    loadData()
-    return () => {
-      mounted = false
-    }
-  }, [onPrecinctGeojsonLoaded, precinctDataVariant, selectedStateCode, setLoadingMapData, setMapError])
 
   const metricLookup = useMemo(() => {
     const values = []
@@ -449,19 +293,19 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     const metricValue = metricLookup.byGeoId.get(geoid)
     return {
       color: hasMetricSelection ? '#475569' : 'transparent',
-      weight: hasMetricSelection ? 0.22 : 0,
-      opacity: hasMetricSelection ? 0.45 : 1,
+      weight: hasMetricSelection ? PRECINCT_STYLE.strokeWeight : 0,
+      opacity: hasMetricSelection ? PRECINCT_STYLE.strokeOpacity : 1,
       fillColor: hasMetricSelection ? getColorForValue(metricValue, binResult?.bins ?? [], binResult?.colors ?? []) : '#cbd5e1',
-      fillOpacity: hasMetricSelection ? 0.78 : 0,
+      fillOpacity: hasMetricSelection ? PRECINCT_STYLE.fillOpacity : 0,
     }
   }
 
   function makePrecinctOutlineStyle() {
     return {
       color: '#0EA5E9',
-      weight: 0.3,
+      weight: PRECINCT_STYLE.outlineWeight,
       fillOpacity: 0,
-      opacity: 0.9,
+      opacity: PRECINCT_STYLE.outlineOpacity,
     }
   }
 
@@ -500,10 +344,10 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
 
       return {
         color: selectedColors.stroke,
-        weight: 5.4,
+        weight: DISTRICT_STYLE.selectedWeight,
         opacity: 1,
         fillColor: selectedColors.fill,
-        fillOpacity: 0.6,
+        fillOpacity: DISTRICT_STYLE.selectedFillOpacity,
       }
     }
 
@@ -511,11 +355,11 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
 
     return {
       color: DISTRICT_DEFAULT_STROKE,
-      weight: 1.9,
-      opacity: 0.98,
+      weight: DISTRICT_STYLE.defaultWeight,
+      opacity: DISTRICT_STYLE.defaultOpacity,
       fillColor,
       // Keep fills translucent so district/precinct boundaries remain legible.
-      fillOpacity: hasMetricSelection ? 0 : 0.58,
+      fillOpacity: hasMetricSelection ? 0 : DISTRICT_STYLE.defaultFillOpacity,
     }
   }
 
@@ -537,9 +381,9 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
     <section className="panel-card map-shell" style={{ flex: 1 }}>
       <MapContainer
         key={`map-${selectedStateCode}-${mapResetToken}`}
-        center={STATE_META[selectedStateCode]?.center ?? [39.1, -104.9]}
-        zoom={STATE_META[selectedStateCode]?.zoom ?? 7}
-        minZoom={5}
+        center={STATE_META[selectedStateCode]?.center ?? MAP_DEFAULT_CENTER}
+        zoom={STATE_META[selectedStateCode]?.zoom ?? MAP_DEFAULT_ZOOM}
+        minZoom={MAP_MIN_ZOOM}
         zoomControl={false}
         style={{ width: '100%', height: '100%' }}
       >
@@ -599,17 +443,25 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
           className="panel-card"
           style={{
             position: 'absolute',
-            left: 10,
-            top: 10,
-            zIndex: 500,
-            padding: '5px 10px',
+            left: BADGE_LAYOUT.inset,
+            top: BADGE_LAYOUT.inset,
+            zIndex: BADGE_LAYOUT.zIndex,
+            padding: `${BADGE_LAYOUT.paddingY}px ${BADGE_LAYOUT.paddingX}px`,
             display: 'flex',
             alignItems: 'center',
-            gap: 6,
+            gap: BADGE_LAYOUT.gap,
             pointerEvents: 'none',
           }}
         >
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0f172a', flexShrink: 0 }} />
+          <span
+            style={{
+              width: BADGE_LAYOUT.markerSize,
+              height: BADGE_LAYOUT.markerSize,
+              borderRadius: '50%',
+              background: '#0f172a',
+              flexShrink: 0,
+            }}
+          />
           <span className="small-text" style={{ fontWeight: 700 }}>Enacted District Plan</span>
           <span className="small-text muted-text">119th Congress</span>
         </div>
@@ -621,8 +473,8 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
           style={{
             position: 'absolute',
             inset: 0,
-            zIndex: 600,
-            background: 'rgba(255,255,255,0.65)',
+            zIndex: LOADING_OVERLAY.zIndex,
+            background: LOADING_OVERLAY.background,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -630,7 +482,15 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
             pointerEvents: 'none',
           }}
         >
-          <div className="panel-card" style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div
+            className="panel-card"
+            style={{
+              padding: `${LOADING_OVERLAY.cardPaddingY}px ${LOADING_OVERLAY.cardPaddingX}px`,
+              display: 'flex',
+              alignItems: 'center',
+              gap: LOADING_OVERLAY.gap,
+            }}
+          >
             <span className="small-text" style={{ fontWeight: 600 }}>Loading district plan...</span>
           </div>
         </div>

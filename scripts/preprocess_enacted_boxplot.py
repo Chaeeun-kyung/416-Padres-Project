@@ -181,7 +181,7 @@ def choose_feasible_groups(statewide_group_population: dict[str, float], thresho
 
 
 def process_file(path: Path, threshold: float):
-    # Action 1: load precinct-level enacted dataset for one state file.
+    # Load precinct-level enacted dataset for one state file.
     with path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
 
@@ -190,7 +190,7 @@ def process_file(path: Path, threshold: float):
     statewide_group_population = {key: 0.0 for key in GROUP_BY_KEY}
     state_code = None
 
-    # Action 2: aggregate precinct totals into enacted-district totals.
+    # Aggregate precinct totals into enacted-district totals.
     for feature in features:
         props = feature.get("properties") or {}
         current_state = normalize_state_code(path, props)
@@ -226,7 +226,7 @@ def process_file(path: Path, threshold: float):
     if not state_code:
         return None, None
 
-    # Action 3: determine feasible groups and compute district-level enacted percentages.
+    # Determine feasible groups and compute district-level enacted percentages.
     feasible_groups = choose_feasible_groups(statewide_group_population, max(0.0, threshold))
     groups_payload = {}
 
@@ -239,7 +239,7 @@ def process_file(path: Path, threshold: float):
             group_total = float(totals["group_population"].get(group_key, 0.0))
             enacted[district_id] = clamp01(group_total / total)
 
-        # Action 4: sort district dots by value so frontend can render stable left-to-right dots.
+        # Sort district dots by value so frontend can render stable left-to-right dots.
         district_order = [
             district_id
             for district_id, _ in sorted(

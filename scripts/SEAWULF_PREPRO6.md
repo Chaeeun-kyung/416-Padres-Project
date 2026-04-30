@@ -1,6 +1,6 @@
 # SeaWulf Prepro-6 Data Generation
 
-This guide documents the canonical preprocessing command for Prepro-6:
+Use this guide to run the standard Prepro-6 preprocessing command:
 
 "Generate all data files required for SeaWulf processing, including graph
 representation and geographic/election/incumbent precinct data."

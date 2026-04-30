@@ -423,8 +423,14 @@ function EICurve({ stateCode }) {
     ?? effectiveGroup
   const nonSelectedGroupLabel = analysis?.nonGroupLabel
     ?? (selectedGroupLabel ? `Non-${selectedGroupLabel}` : 'Non-selected group')
-  const demRows = Array.isArray(analysis?.demRows) ? analysis.demRows : []
-  const repRows = Array.isArray(analysis?.repRows) ? analysis.repRows : []
+  const demRows = useMemo(
+    () => (Array.isArray(analysis?.demRows) ? analysis.demRows : []),
+    [analysis?.demRows],
+  )
+  const repRows = useMemo(
+    () => (Array.isArray(analysis?.repRows) ? analysis.repRows : []),
+    [analysis?.repRows],
+  )
   const demRowsPercent = useMemo(
     () => demRows.map((row) => ({ ...row, xPct: Number(row?.x ?? 0) * 100 })),
     [demRows],

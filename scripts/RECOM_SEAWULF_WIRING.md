@@ -1,7 +1,6 @@
 # SeaWulf ReCom Wiring Guide
 
-This document explains how the ReCom scripts are now wired to real Prepro-6
-outputs, including expected input and output formats.
+This guide shows how ReCom scripts connect to Prepro-6 outputs, including input and output formats.
 
 ## 1) Required Input Files
 
