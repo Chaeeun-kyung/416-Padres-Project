@@ -1,3 +1,4 @@
+// GUI-2, GUI-4, GUI-7
 import { useCallback, useEffect, useMemo } from 'react'
 import { GeoJSON, MapContainer, TileLayer, useMap, ZoomControl } from 'react-leaflet'
 import { feature } from 'topojson-client'
@@ -70,8 +71,6 @@ const LOADING_OVERLAY = {
   cardPaddingX: 16,
   gap: 8,
 }
-
-// Applies fitBounds when state data changes.
 function BoundsController({ bounds }) {
   const map = useMap()
 
@@ -83,8 +82,6 @@ function BoundsController({ bounds }) {
 
   return null
 }
-
-// Forces Leaflet to recalc canvas size when container dimensions change.
 function MapResizeSync() {
   const map = useMap()
 
@@ -159,10 +156,10 @@ function ChoroplethLegend({ binResult }) {
   )
 }
 
-// Main map renderer:
-// - loads precinct/district GeoJSON for selected state
-// - computes metric bins/colors
-// - renders map layers and handles district selection interactions
+// Main map renderer.
+// Loads precinct/district GeoJSON for selected state.
+// Computes metric bins/colors.
+// Renders map layers and handles district selection interactions.
 function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapData, setMapError, loadingMapData }) {
   const showPrecinctBoundaries = useAppStore((state) => state.showPrecinctBoundaries)
   const showDemLeadOverlay = useAppStore((state) => state.showDemLeadOverlay)
@@ -358,7 +355,6 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
       weight: DISTRICT_STYLE.defaultWeight,
       opacity: DISTRICT_STYLE.defaultOpacity,
       fillColor,
-      // Keep fills translucent so district/precinct boundaries remain legible.
       fillOpacity: hasMetricSelection ? 0 : DISTRICT_STYLE.defaultFillOpacity,
     }
   }
@@ -436,8 +432,6 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
           />
         )}
       </MapContainer>
-
-      {/* Enacted plan badge */}
       {!loadingMapData && showDistrictBoundaries && districtGeojson && (
         <div
           className="panel-card"
@@ -466,8 +460,6 @@ function MapPanel({ selectedStateCode, onPrecinctGeojsonLoaded, setLoadingMapDat
           <span className="small-text muted-text">119th Congress</span>
         </div>
       )}
-
-      {/* Loading overlay */}
       {loadingMapData && (
         <div
           style={{

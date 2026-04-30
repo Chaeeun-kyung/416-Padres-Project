@@ -1,3 +1,4 @@
+// GUI-6, GUI-7
 import { useMemo } from 'react'
 import Button from '../../ui/components/Button'
 import Card from '../../ui/components/Card'

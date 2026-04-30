@@ -5,9 +5,6 @@ const SPLASH_STATE_OPTIONS = [
   { value: 'AZ', label: 'Arizona (AZ)' },
   { value: 'CO', label: 'Colorado (CO)' },
 ]
-
-// Splash page intro panel and state picker.
-// Allows users to enter dashboard mode without clicking the map.
 function SplashHero({ selectedStateCode, onStateSelect, disabled = false }) {
   const effectiveValue = selectedStateCode ?? ''
 

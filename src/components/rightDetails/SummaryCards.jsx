@@ -1,3 +1,4 @@
+// GUI-3: State data summary
 import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Card from '../../ui/components/Card'
@@ -426,4 +427,3 @@ function MapSummaryCards({ summary, loading }) {
 }
 
 export default MapSummaryCards
-

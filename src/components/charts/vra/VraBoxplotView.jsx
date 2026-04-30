@@ -1,3 +1,4 @@
+// GUI-21: Display minority effectiveness box & whisker data
 import Plot from 'react-plotly.js'
 import boxWhiskerMock from '../../../data/mock/vraImpactBoxWhiskerMock.json'
 

@@ -1,3 +1,4 @@
+// GUI-20, GUI-21, GUI-22
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { fetchStateSummary } from '../../../services/summaryApi'

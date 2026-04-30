@@ -1,5 +1,3 @@
-// Shared panel/card shell.
-// Handles optional header text, compact spacing, and no-padding mode.
 function Card({ title, subtitle, actions, children, className = '', compact = false, noPadding = false }) {
   const modeClass = noPadding ? 'ui-card--none' : compact ? 'ui-card--compact' : ''
   const cardClassName = ['ui-card', modeClass, className].filter(Boolean).join(' ')

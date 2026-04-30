@@ -1,4 +1,3 @@
-// Shared select/dropdown primitive.
 function Select({ options, value, onChange, ariaLabel, ...rest }) {
   return (
     <select

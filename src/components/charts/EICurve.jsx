@@ -1,3 +1,4 @@
+// GUI-12, GUI-15
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Area, AreaChart, CartesianGrid, Legend, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'

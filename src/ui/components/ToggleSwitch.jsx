@@ -1,4 +1,3 @@
-// Binary on/off switch control with accessible switch semantics.
 function ToggleSwitch({ checked, onChange, disabled = false, ariaLabel }) {
   return (
     <button

@@ -1,3 +1,4 @@
+// GUI-20, GUI-21, GUI-22
 const DEFAULT_GROUP_LABEL_OVERRIDES = {
   white_pct: 'White',
   black_pct: 'Black',

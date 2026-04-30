@@ -1,3 +1,4 @@
+// GUI-17: Display box & whisker data
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 import Plot from 'react-plotly.js'
@@ -5,16 +6,12 @@ import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
 
 const ensembleBoxplotCache = new Map()
-
-// Finds a Latino/Hispanic option so default selection matches common class examples.
 function findLatinoOption(options) {
   return (options ?? []).find((option) => (
     /latino|hisp/i.test(String(option?.value ?? ''))
     || /latino|hispanic/i.test(String(option?.label ?? ''))
   ))
 }
-
-// Renders the ranked-district boxplot comparison with enacted-plan dots.
 function EnsembleBoxplot({ stateCode }) {
   const [analysis, setAnalysis] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -119,8 +116,6 @@ function EnsembleBoxplot({ stateCode }) {
     marker: { color: '#94a3b8' },
     line: { color: '#475569' },
   }))
-
-  // Overlay enacted values as red marker dots for direct visual comparison.
   const enactedTrace = {
     type: 'scatter',
     mode: 'markers',

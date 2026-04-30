@@ -1,16 +1,12 @@
+// GUI-16: Display ensemble splits in a bar chart
 import { useEffect, useMemo, useState } from 'react'
 import axios from 'axios'
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import Info from '../../ui/components/Info'
-
-// Converts split rows into a Map for O(1) frequency lookup by Republican wins.
 function toSplitMap(rows) {
   const safeRows = Array.isArray(rows) ? rows : []
   return new Map(safeRows.map((row) => [Number(row.repWins), Number(row.freq)]))
 }
-
-// Builds aligned chart rows so race-blind and VRA-constrained bars share the same x-axis.
-// Missing frequencies are treated as 0, and empty bins for both series are dropped.
 function buildSplitRows(stateData, districtCount) {
   if (!stateData || !districtCount) return []
 
@@ -38,8 +34,6 @@ function buildSplitRows(stateData, districtCount) {
 
   return rows
 }
-
-// Main ensemble split chart component (GUI-16 style split comparison display).
 function EnsembleSplits({ stateCode }) {
   const [stateData, setStateData] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -84,8 +78,6 @@ function EnsembleSplits({ stateCode }) {
       cancelled = true
     }
   }, [stateCode])
-
-  // Memoize derived chart data so it only recomputes when inputs actually change.
   const data = useMemo(() => buildSplitRows(stateData, districtCount), [districtCount, stateData])
 
   if (loading) {

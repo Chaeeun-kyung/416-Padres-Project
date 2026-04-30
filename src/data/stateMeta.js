@@ -121,6 +121,4 @@ export const FIPS_TO_STATE_CODE = {
   '55': 'WI',
   '56': 'WY',
 }
-
-// All contiguous U.S. states (plus DC via FIPS map) used by splash map filtering.
 export const CONTIGUOUS_STATE_FIPS = Object.keys(FIPS_TO_STATE_CODE)
