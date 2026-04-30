@@ -36,9 +36,3 @@ export async function fetchStateSummary(stateCode) {
   summaryCache.set(normalizedStateCode, { promise: pending })
   return pending
 }
-
-export function clearSummaryCache(stateCode) {
-  const normalizedStateCode = normalizeStateCode(stateCode)
-  if (!normalizedStateCode) return
-  summaryCache.delete(normalizedStateCode)
-}

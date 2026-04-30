@@ -1,4 +1,3 @@
-// Centralized UI tokens used to generate CSS variables at runtime.
 export const theme = {
   colors: {
     background: '#f4f5f7',
@@ -32,8 +31,6 @@ export const theme = {
     bodySize: '12.5px',
   },
 }
-
-// Pushes theme tokens into :root CSS variables so plain CSS can reference them.
 export function applyThemeVars() {
   const root = document.documentElement
   root.style.setProperty('--ui-bg', theme.colors.background)

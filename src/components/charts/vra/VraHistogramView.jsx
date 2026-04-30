@@ -1,0 +1,103 @@
+// GUI-22: Display minority effectiveness ensemble histogram
+import Plot from 'react-plotly.js'
+import histogramMock from '../../../data/mock/vraImpactHistogramMock.json'
+import {
+  buildMockHistogramCountsByDistrict,
+  clampInt,
+  expandCountsToHistogramSamples,
+} from './vraImpactUtils'
+
+const HISTOGRAM_EFFECTIVE_SHARE_THRESHOLD = Number(histogramMock?.meta?.effectiveShareThreshold ?? 0.6)
+const MOCK_ENSEMBLE_PLAN_COUNT = Number(histogramMock?.meta?.planCountPerEnsemble ?? 5000)
+
+function VraHistogramView({ stats }) {
+  if (!stats) return <div className="small-text muted-text">No histogram data available.</div>
+
+  const maxDistricts = Math.max(1, stats.districtCount)
+  const start = -0.5
+  const end = maxDistricts + 0.5
+  const nonVraCounts = buildMockHistogramCountsByDistrict(maxDistricts, 'nonVra', histogramMock, MOCK_ENSEMBLE_PLAN_COUNT)
+  const constrainedCounts = buildMockHistogramCountsByDistrict(maxDistricts, 'constrained', histogramMock, MOCK_ENSEMBLE_PLAN_COUNT)
+  const nonVraSamples = expandCountsToHistogramSamples(nonVraCounts)
+  const constrainedSamples = expandCountsToHistogramSamples(constrainedCounts)
+  const peakCount = Math.max(
+    1,
+    ...Array.from(nonVraCounts.values()),
+    ...Array.from(constrainedCounts.values()),
+  )
+
+  return (
+    <Plot
+      data={[
+        {
+          type: 'histogram',
+          x: constrainedSamples,
+          name: histogramMock?.legendLabels?.constrained ?? 'Constrained: statewide score',
+          marker: { color: histogramMock?.colors?.constrained ?? '#4f67b3' },
+          opacity: 0.7,
+          xbins: { start, end, size: 1 },
+        },
+        {
+          type: 'histogram',
+          x: nonVraSamples,
+          name: histogramMock?.legendLabels?.nonVra ?? 'Non-VRA',
+          marker: { color: histogramMock?.colors?.nonVra ?? '#59a966' },
+          opacity: 0.7,
+          xbins: { start, end, size: 1 },
+        },
+      ]}
+      layout={{
+        autosize: true,
+        barmode: 'overlay',
+        margin: { l: 58, r: 10, t: 54, b: 58 },
+        title: {
+          text: String(histogramMock?.titleTemplate ?? '{groupLabel} effectiveness').replace('{groupLabel}', stats.groupLabel),
+          x: 0.5,
+          xanchor: 'center',
+          y: 0.98,
+          yanchor: 'top',
+          font: { size: 18 },
+        },
+        showlegend: true,
+        xaxis: {
+          title: { text: `Number of districts with ${stats.groupLabel} effectiveness > ${(HISTOGRAM_EFFECTIVE_SHARE_THRESHOLD * 100).toFixed(0)}%` },
+          dtick: 1,
+          range: [start, end],
+          automargin: true,
+        },
+        yaxis: {
+          title: { text: 'Number of plans in ensemble' },
+          range: [0, peakCount * 1.15],
+          rangemode: 'tozero',
+          automargin: true,
+        },
+        annotations: [
+          {
+            x: clampInt(maxDistricts * Number(histogramMock?.annotations?.left?.xRatio ?? 0.58), 0, maxDistricts),
+            y: peakCount * Number(histogramMock?.annotations?.left?.yRatio ?? 0.62),
+            xref: 'x',
+            yref: 'y',
+            text: histogramMock?.annotations?.left?.text ?? 'non-VRA',
+            showarrow: false,
+            font: { size: 22, color: 'rgba(30, 41, 59, 0.82)' },
+          },
+          {
+            x: clampInt(maxDistricts * Number(histogramMock?.annotations?.right?.xRatio ?? 0.9), 0, maxDistricts),
+            y: peakCount * Number(histogramMock?.annotations?.right?.yRatio ?? 0.75),
+            xref: 'x',
+            yref: 'y',
+            text: histogramMock?.annotations?.right?.text ?? 's<sup>state</sup>',
+            showarrow: false,
+            font: { size: 22, color: 'rgba(30, 41, 59, 0.82)' },
+          },
+        ],
+        paper_bgcolor: 'white',
+        plot_bgcolor: 'white',
+      }}
+      config={{ displayModeBar: false, responsive: true }}
+      style={{ width: '100%', height: '100%' }}
+    />
+  )
+}
+
+export default VraHistogramView

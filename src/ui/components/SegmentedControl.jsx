@@ -1,4 +1,3 @@
-// Horizontal segmented selector used for tab-like choices.
 function SegmentedControl({ options, value, onChange, ariaLabel, columns = 2 }) {
   const safeColumns = Number.isFinite(Number(columns)) && Number(columns) > 0 ? Math.floor(Number(columns)) : 2
   return (

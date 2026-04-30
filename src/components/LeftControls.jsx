@@ -16,21 +16,11 @@ const PRECINCT_DATA_OPTIONS = [
 const FEASIBLE_GROUP_MIN_MILLIONS = 0.4
 const FEASIBLE_GROUP_KEYS = ['white_pct', 'latino_pct']
 const HEATMAP_BASE_OPTIONS = metricConfig.filter((metric) => metric.key !== 'pct_dem_lead')
-
-// Guards against stale selections after state/data changes.
-// If selected metric is no longer available, fall back to None.
 function getEffectiveMetric(metricOptions, activeMetric) {
   const activeMetricExists = metricOptions.some((option) => option.value === activeMetric)
   if (activeMetricExists) return activeMetric
   return ''
 }
-
-// Left sidebar control panel.
-// Responsibilities:
-// 1) State selection
-// 2) Layer visibility toggles
-// 3) Demographic heatmap group selection
-// 4) Context guidance for district table interaction
 function LeftControls() {
   const selectedStateCode = useAppStore((state) => state.selectedStateCode)
   const setSelectedStateCode = useAppStore((state) => state.setSelectedStateCode)
@@ -68,7 +58,6 @@ function LeftControls() {
         const millions = summary?.racialEthnicPopulationMillions ?? {}
         const nextKeys = FEASIBLE_GROUP_KEYS.filter((key) => Number(millions[key]) > FEASIBLE_GROUP_MIN_MILLIONS)
         if (!cancelled) {
-          // Enforce feasible-only options.
           setFeasibleGroupKeys(nextKeys)
         }
       } catch {
@@ -84,8 +73,6 @@ function LeftControls() {
       cancelled = true
     }
   }, [selectedStateCode])
-
-  // If selected metric disappears after a state/data change, auto-correct it.
   useEffect(() => {
     if (activeMetric && !metricOptions.some((option) => option.value === activeMetric)) {
       setActiveMetric(firstAvailableMetric)

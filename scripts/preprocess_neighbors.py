@@ -1,6 +1,6 @@
-# Precinct neighbor preprocessing
-# If two precincts share a common boundary of at least 200 feet and the edges of each precinct are within 200 feet of its neighbors’ edges, then they are considered neighbors.
-# This script computes neighbor lists for each precinct and writes them back into the GeoJSON properties.
+# Precinct neighbor preprocessing: Prepro-2
+# If two precincts share at least 200 feet of boundary and their boundaries are within
+# 200 feet of each other, they are treated as neighbors.
 
 import argparse
 from pathlib import Path
@@ -15,7 +15,6 @@ DEFAULT_NEIGHBOR_COUNT_FIELD = "neighbor_count_200ft"
 
 
 def parse_args() -> argparse.Namespace:
-    # Keep the script flexible so the same script can run for AZ/CO or future states without changing code.
     parser = argparse.ArgumentParser(
         description=(
             "Compute precinct neighbors from polygon boundaries and write them back into GeoJSON feature properties."
@@ -75,7 +74,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def output_path_for(input_path: Path, suffix: str, output_dir: str | None) -> Path:
-    # Default to saving near the input file to keep data-integration flow simple.
     target_dir = Path(output_dir) if output_dir else input_path.parent
     return target_dir / f"{input_path.stem}{suffix}.geojson"
 
@@ -85,7 +83,6 @@ def compute_neighbors(
     id_col: str,
     threshold_ft: float,
 ) -> dict:
-    # Check ID column exists, has no nulls, and is unique.
     if id_col not in gdf.columns:
         raise ValueError(f"Missing ID column: {id_col}")
 
@@ -95,7 +92,6 @@ def compute_neighbors(
     if not gdf[id_col].is_unique:
         raise ValueError(f"ID column must be unique: {id_col}")
 
-    # Convert feet threshold to meters for spatial operations.
     threshold_m = threshold_ft * FT_TO_M
 
     # Repair invalid polygons, then drop empty geometries.
@@ -104,7 +100,6 @@ def compute_neighbors(
     work["geometry"] = work["geometry"].buffer(0)
     valid = work[work.geometry.notnull() & (~work.geometry.is_empty)].copy()
 
-    # If there are no valid geometries, return empty neighbor sets.
     if valid.empty:
         return {pid: [] for pid in gdf[id_col].tolist()}
 
@@ -114,7 +109,6 @@ def compute_neighbors(
     bounds = projected.geometry.bounds
     sindex = projected.sindex
 
-    # Start with empty neighbor sets for every precinct (including isolated ones).
     neighbors = {pid: set() for pid in gdf[id_col].tolist()}
     bounds_rows = list(bounds.itertuples(index=False, name=None))
     ids = projected[id_col].tolist()
@@ -129,31 +123,26 @@ def compute_neighbors(
             maxy + threshold_m,
         )
         for j in sindex.intersection(query_box):
-            # To avoid redundant checks.
             if j <= i:
                 continue
 
             bi = boundaries.iloc[i]
             bj = boundaries.iloc[j]
-            # Edges of each precinct must be within 200 feet.
             if bi.distance(bj) > threshold_m:
                 continue
 
-            # Shared boundary must be at least 200 feet.
             shared_len_m = bi.intersection(bj).length
             if shared_len_m + 1e-9 < threshold_m:
                 continue
 
-            # Store undirected adjacency symmetrically.
             a = ids[i]
             b = ids[j]
             neighbors[a].add(b)
             neighbors[b].add(a)
 
-    # Serialize sets as sorted lists for deterministic output.
     return {pid: sorted(list(adj)) for pid, adj in neighbors.items()}
 
-# To process a single file: compute neighbors and write them back into GeoJSON properties.
+
 def process_file(
     input_path: Path,
     output_path: Path,
@@ -166,7 +155,6 @@ def process_file(
     if output_path.exists() and not overwrite:
         raise FileExistsError(f"Output exists: {output_path} (use --overwrite to replace)")
 
-    # Compute neighbor map from geometry, then attach it as GeoJSON properties.
     gdf = gpd.read_file(input_path)
     neighbor_map = compute_neighbors(gdf, id_col=id_col, threshold_ft=threshold_ft)
 
@@ -197,7 +185,6 @@ def main() -> None:
             neighbor_count_field=args.neighbor_count_field,
             overwrite=args.overwrite,
         )
-        # Safety net: validate written output unless explicitly skipped.
         if not args.skip_validate:
             ok = validate_file(
                 path=output_path,
@@ -212,3 +199,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+

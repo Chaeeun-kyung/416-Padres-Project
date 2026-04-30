@@ -5,6 +5,10 @@ import Info from '../../ui/components/Info'
 import Select from '../../ui/components/Select'
 import GinglesPointsTable from '../tables/GinglesPointsTable'
 
+// Gingles scatter plot and points table components.
+// Displays precinct-level Gingles analysis results for the selected state and group.
+// Scatter plot uses WebGL for performance with large numbers of points.
+// Clicking a point in the scatter plot highlights the matching row in the table below.
 const DEM_COLOR = '#2563eb'
 const REP_COLOR = '#dc2626'
 const FALLBACK_GROUP_OPTIONS = [
@@ -99,8 +103,6 @@ function GinglesScatter({ stateCode }) {
   useEffect(() => {
     setSelectedPid(null)
   }, [selectedGroup, stateCode])
-
-  // Build dense point arrays once so Plotly/WebGL receives compact numeric series.
   const plotSeries = useMemo(() => {
     const x = []
     const demY = []
@@ -164,8 +166,6 @@ function GinglesScatter({ stateCode }) {
     if (!pid) {
       return
     }
-
-    // Chart click should always pin the corresponding row; no toggle-off on repeated events.
     setSelectedPid(pid)
   }
 
