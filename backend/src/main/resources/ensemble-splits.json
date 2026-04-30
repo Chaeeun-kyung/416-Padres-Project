@@ -1,38 +1,110 @@
 {
-  "CO": {
-    "raceBlind": [
-      { "repWins": 1, "freq": 320 },
-      { "repWins": 2, "freq": 510 },
-      { "repWins": 3, "freq": 780 },
-      { "repWins": 4, "freq": 600 },
-      { "repWins": 5, "freq": 240 },
-      { "repWins": 6, "freq": 70 }
-    ],
-    "vraConstrained": [
-      { "repWins": 1, "freq": 240 },
-      { "repWins": 2, "freq": 460 },
-      { "repWins": 3, "freq": 760 },
-      { "repWins": 4, "freq": 690 },
-      { "repWins": 5, "freq": 300 },
-      { "repWins": 6, "freq": 90 }
-    ]
-  },
   "AZ": {
     "raceBlind": [
-      { "repWins": 2, "freq": 180 },
-      { "repWins": 3, "freq": 420 },
-      { "repWins": 4, "freq": 680 },
-      { "repWins": 5, "freq": 710 },
-      { "repWins": 6, "freq": 500 },
-      { "repWins": 7, "freq": 210 }
+      {
+        "repWins": 3,
+        "freq": 12
+      },
+      {
+        "repWins": 4,
+        "freq": 503
+      },
+      {
+        "repWins": 5,
+        "freq": 1944
+      },
+      {
+        "repWins": 6,
+        "freq": 2060
+      },
+      {
+        "repWins": 7,
+        "freq": 473
+      },
+      {
+        "repWins": 8,
+        "freq": 8
+      }
     ],
     "vraConstrained": [
-      { "repWins": 2, "freq": 150 },
-      { "repWins": 3, "freq": 380 },
-      { "repWins": 4, "freq": 640 },
-      { "repWins": 5, "freq": 760 },
-      { "repWins": 6, "freq": 540 },
-      { "repWins": 7, "freq": 250 }
+      {
+        "repWins": 3,
+        "freq": 63
+      },
+      {
+        "repWins": 4,
+        "freq": 639
+      },
+      {
+        "repWins": 5,
+        "freq": 1755
+      },
+      {
+        "repWins": 6,
+        "freq": 1934
+      },
+      {
+        "repWins": 7,
+        "freq": 570
+      },
+      {
+        "repWins": 8,
+        "freq": 39
+      }
+    ]
+  },
+  "CO": {
+    "raceBlind": [
+      {
+        "repWins": 0,
+        "freq": 7
+      },
+      {
+        "repWins": 1,
+        "freq": 176
+      },
+      {
+        "repWins": 2,
+        "freq": 1287
+      },
+      {
+        "repWins": 3,
+        "freq": 2449
+      },
+      {
+        "repWins": 4,
+        "freq": 1054
+      },
+      {
+        "repWins": 5,
+        "freq": 27
+      }
+    ],
+    "vraConstrained": [
+      {
+        "repWins": 0,
+        "freq": 22
+      },
+      {
+        "repWins": 1,
+        "freq": 394
+      },
+      {
+        "repWins": 2,
+        "freq": 1830
+      },
+      {
+        "repWins": 3,
+        "freq": 2056
+      },
+      {
+        "repWins": 4,
+        "freq": 614
+      },
+      {
+        "repWins": 5,
+        "freq": 76
+      }
     ]
   }
 }

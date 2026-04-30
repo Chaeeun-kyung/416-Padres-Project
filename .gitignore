@@ -32,3 +32,7 @@ __pycache__/
 
 # Large generated SeaWulf files (reproducible via scripts/generate_seawulf_inputs.py)
 results/seawulf_inputs/*/*_precincts_seawulf.geojson
+
+# Individual worker outputs and large merged ensemble files (too large for GitHub)
+results/seawulf_inputs/**/recom_worker_*.json
+results/seawulf_inputs/**/recom_parallel_merged_*.json
