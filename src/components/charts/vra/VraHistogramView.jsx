@@ -3,7 +3,6 @@ import Plot from 'react-plotly.js'
 import histogramMock from '../../../data/mock/vraImpactHistogramMock.json'
 import {
   buildMockHistogramCountsByDistrict,
-  clampInt,
   expandCountsToHistogramSamples,
 } from './vraImpactUtils'
 
@@ -76,26 +75,7 @@ function VraHistogramView({ stats }) {
           rangemode: 'tozero',
           automargin: true,
         },
-        annotations: [
-          {
-            x: clampInt(maxDistricts * Number(histogramMock?.annotations?.left?.xRatio ?? 0.58), 0, maxDistricts),
-            y: peakCount * Number(histogramMock?.annotations?.left?.yRatio ?? 0.62),
-            xref: 'x',
-            yref: 'y',
-            text: histogramMock?.annotations?.left?.text ?? 'non-VRA',
-            showarrow: false,
-            font: { size: 22, color: 'rgba(30, 41, 59, 0.82)' },
-          },
-          {
-            x: clampInt(maxDistricts * Number(histogramMock?.annotations?.right?.xRatio ?? 0.9), 0, maxDistricts),
-            y: peakCount * Number(histogramMock?.annotations?.right?.yRatio ?? 0.75),
-            xref: 'x',
-            yref: 'y',
-            text: histogramMock?.annotations?.right?.text ?? 's<sup>state</sup>',
-            showarrow: false,
-            font: { size: 22, color: 'rgba(30, 41, 59, 0.82)' },
-          },
-        ],
+        annotations: [],
         paper_bgcolor: 'white',
         plot_bgcolor: 'white',
       }}
