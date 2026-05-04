@@ -1,6 +1,6 @@
 // GUI-22: Display minority effectiveness ensemble histogram
 import Plot from 'react-plotly.js'
-import histogramMock from '../../../data/mock/vraImpactHistogramMock.json'
+import histogramMock from '../../../data/fallback/vraImpactHistogramMock.json'
 import {
   buildMockHistogramCountsByDistrict,
   expandCountsToHistogramSamples,

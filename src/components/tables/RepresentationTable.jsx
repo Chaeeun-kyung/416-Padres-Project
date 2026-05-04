@@ -1,4 +1,4 @@
-// District detail table used on the right-side "Congressional Representation" page.
+// GUI-6: Congressional representation detail table
 // Each row is selectable and keeps map + table selection synchronized by district ID.
 function RepresentationTable({ rows, selectedDistrictId, onSelectDistrict }) {
   return (

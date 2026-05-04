@@ -1,5 +1,5 @@
 // GUI-20: Display VRA impact threshold table
-import thresholdMock from '../../../data/mock/vraImpactThresholdMock.json'
+import thresholdMock from '../../../data/fallback/vraImpactThresholdMock.json'
 import { formatPercent, formatTemplate } from './vraImpactUtils'
 
 const THRESHOLD_TABLE_STYLE = {

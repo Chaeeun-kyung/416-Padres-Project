@@ -11,7 +11,7 @@ import app.dto.SelectionOptionResponse;
 import app.exception.BadRequestException;
 import app.exception.ResourceNotFoundException;
 import app.repository.EnsembleBoxplotRepository;
-import app.repository.EnsembleSplitRepository;
+import app.repository.EnsembleSplitsRepository;
 import app.repository.StateSummaryRepository;
 import java.util.List;
 import java.util.Map;
@@ -33,12 +33,12 @@ public class EnsembleService {
   private static final List<String> AVAILABLE_GROUP_KEYS = List.of("white_pct", "latino_pct");
   private static final List<String> AVAILABLE_ENSEMBLES = List.of("raceBlind", "vraConstrained");
 
-  private final EnsembleSplitRepository ensembleSplitRepository;
+  private final EnsembleSplitsRepository ensembleSplitRepository;
   private final EnsembleBoxplotRepository ensembleBoxplotRepository;
   private final StateSummaryRepository stateSummaryRepository;
 
   public EnsembleService(
-      EnsembleSplitRepository ensembleSplitRepository,
+      EnsembleSplitsRepository ensembleSplitRepository,
       EnsembleBoxplotRepository ensembleBoxplotRepository,
       StateSummaryRepository stateSummaryRepository
   ) {

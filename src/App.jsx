@@ -1,5 +1,5 @@
-import SplashView from './components/SplashView'
-import StateDashboard from './components/StateDashboard'
+import SplashView from './components/splash/SplashView'
+import StateDashboard from './components/dashboard/StateDashboard'
 import useAppStore from './store/useAppStore'
 
 // "splash" shows US map/state entry

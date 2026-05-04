@@ -1,6 +1,6 @@
 // GUI-21: Display minority effectiveness box & whisker data
 import Plot from 'react-plotly.js'
-import boxWhiskerMock from '../../../data/mock/vraImpactBoxWhiskerMock.json'
+import boxWhiskerMock from '../../../data/fallback/vraImpactBoxWhiskerMock.json'
 
 const ENSEMBLE_LABELS = {
   raceBlind: 'Race-Blind',

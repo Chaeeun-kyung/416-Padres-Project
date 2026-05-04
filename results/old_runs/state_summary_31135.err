@@ -1,4 +1,0 @@
-  File "/gpfs/home/amyli2/cse416/scripts/state_summary.py", line 1
-    import warnings import geopandas as gpd import networkx as nx from gerrychain import Graph 
-                    ^^^^^^
-SyntaxError: invalid syntax

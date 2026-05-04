@@ -1,3 +1,4 @@
+// Global app state — drives view routing, map controls, and cross-panel selections.
 import { create } from 'zustand'
 
 // App-level defaults used for first load and full reset.
